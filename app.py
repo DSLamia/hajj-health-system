@@ -5,6 +5,7 @@ import requests
 from supabase import create_client, Client
 from model_handler import predict_logic
 import os
+
 app = Flask(__name__)
 CORS(app)
 
@@ -31,12 +32,32 @@ def get_makkah_weather():
     return 22.6, 45.0, 10.0
 
 
+# 🌐 مسارات واجهات المستخدم (HTML) ليقرأها السيرفر عند التنقل
+@app.route('/')
+def index():
+    return render_template('pub.html')  # الصفحة الرئيسية العامة
+
+
+@app.route('/employee')
+def employee():
+    return render_template('employee_dashboard.html')
+
+
+@app.route('/pilgrim')
+def pilgrim():
+    return render_template('pilgrim_dashboard.html')
+
+
+@app.route('/emergency')
+def emergency():
+    return render_template('emrg.html')
+
+
 @app.route('/api/predict', methods=['POST'])
 def predict():
     try:
         data = request.json
         u_id = data.get('user_id', 'GUEST')
-        # تحديد الجمهور المستهدف: 'officer' للمسؤولين أو 'pilgrim' للحجاج
         target = data.get('target_audience', 'pilgrim')
         occ_beds = data.get('occupied_beds', 0)
 
@@ -50,7 +71,6 @@ def predict():
         if res_query.data:
             resources = res_query.data[0]
         else:
-            # بيانات احتياطية في حال فشل الاتصال
             resources = {
                 'total_beds': 10240,
                 'occupied_beds': 0,
@@ -64,13 +84,11 @@ def predict():
 
         # 2. تحديد بيانات المدخلات بناءً على نوع المستخدم
         if target == 'officer':
-            # إذا كان موظفاً: نستخدم قيم افتراضية للفرد لأن التركيز على إحصائيات النظام ككل
-            age_enc = 1  # Adult
+            age_enc = 1
             has_chronic = False
             role = 'officer'
             disease_name = 'none'
         else:
-            # إذا كان حاجاً: نبحث عن بياناته الشخصية في جدول البروفايل
             try:
                 user_res = supabase.table("profiles").select("*").eq("pilgrim_id", u_id).single().execute()
                 user_data = user_res.data
@@ -79,13 +97,11 @@ def predict():
                 has_chronic = user_data.get('has_chronic', False)
                 role = 'pilgrim'
             except Exception:
-                # قيم افتراضية إذا لم يوجد البروفايل
                 age_enc, has_chronic, role = 1, False, 'pilgrim'
 
         # 3. جلب بيانات الطقس الحالية
         temp, hum, wind = get_makkah_weather()
         temp = round(temp)
-        # تحويل حالة الأمراض المزمنة لرقم يدخل في الموديل
         chronic_input_value = 100 if has_chronic else 0
 
         # 4. تجهيز المصفوفة النهائية للمودل
@@ -103,10 +119,10 @@ def predict():
             chronic_input_value
         ]
 
-        # تحويل البيانات لـ DataFrame
         input_df = pd.DataFrame([raw_input], columns=FEATURES)
         disease_name = user_data.get('disease_detail', 'none')
-        # 5. استدعاء المودل وحساب النتائج (تمرير bed_capacity لحساب نسبة الإشغال)
+
+        # 5. استدعاء المودل وحساب النتائج
         results = predict_logic(
             input_df,
             role,
@@ -115,6 +131,7 @@ def predict():
             bed_capacity=bed_cap,
             occupied_beds=occ_beds
         )
+
         # 6. حفظ التنبؤ في جدول predictionsً
         try:
             supabase.table("predictions").insert({
@@ -126,7 +143,6 @@ def predict():
         except Exception as save_error:
             print(f"Log: Prediction not saved to DB: {save_error}")
 
-        # إرجاع النتيجة النهائية للواجهة
         return jsonify({
             "status": "success",
             "results": results,
