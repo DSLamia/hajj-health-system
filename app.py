@@ -27,36 +27,49 @@ def get_makkah_weather():
         res = requests.get(url, timeout=5).json()
         if res.get("cod") == 200:
             return res['main']['temp'], res['main']['humidity'], res['wind']['speed'] * 3.6
-    except:
-        pass
+    except Exception as e:
+        print(f"Log: External Weather API failed, using defaults. Info: {e}")
     return 22.6, 45.0, 10.0
 
 
-# 🌐 مسارات واجهات المستخدم (HTML) ليقرأها السيرفر عند التنقل
+# 🌐 ==================== مسارات واجهات المستخدم (HTML Routing) ====================
+
 @app.route('/')
 def index():
-    return render_template('pub.html')  # الصفحة الرئيسية العامة
+    # الصفحة الرئيسية الأولى التي يراها الزائر (بوابة الحج والتلبية التفاعلية)
+    return render_template('Untitled 4.html')
 
 
-@app.route('/employee')
-def employee():
+@app.route('/public-weather')
+def public_weather():
+    # لوحة طقس مكة المكرمة العامة والتوصيات الذكية للأفراد
+    return render_template('pub.html')
+
+
+@app.route('/employee-dashboard')
+def employee_dashboard():
+    # لوحة تحكم الموظفين والمسؤولين لمتابعة الإشغالات وإرسال التنبيهات
     return render_template('employee_dashboard.html')
 
 
-@app.route('/pilgrim')
-def pilgrim():
+@app.route('/pilgrim-dashboard')
+def pilgrim_dashboard():
+    # لوحة تحكم وتنبؤات الحجاج الشخصية
     return render_template('pilgrim_dashboard.html')
 
 
 @app.route('/emergency')
 def emergency():
+    # صفحة الطوارئ والإسعاف وفرق الاستجابة العاجلة
     return render_template('emrg.html')
 
+
+# 📊 ==================== مسارات المعالجة والـ APIs الخلفية ====================
 
 @app.route('/api/predict', methods=['POST'])
 def predict():
     try:
-        data = request.json
+        data = request.json or {}
         u_id = data.get('user_id', 'GUEST')
         target = data.get('target_audience', 'pilgrim')
         occ_beds = data.get('occupied_beds', 0)
@@ -64,9 +77,9 @@ def predict():
         user_data = {}
         disease_name = 'none'
 
-        # 1. جلب الموارد الصحيةِ
+        # 1. جلب الموارد الصحية من الجدول بالتحديث البرمجي الجديد
         SPECIFIC_ID = "4e13e939-e91e-4eb0-abe4-2bd111445112"
-        res_query = supabase.table("health_resources").select("*").eq("id", SPECIFIC_ID).execute()
+        res_query = supabase.from_("health_resources").select("*").eq("id", SPECIFIC_ID).execute()
 
         if res_query.data:
             resources = res_query.data[0]
@@ -90,39 +103,39 @@ def predict():
             disease_name = 'none'
         else:
             try:
-                user_res = supabase.table("profiles").select("*").eq("pilgrim_id", u_id).single().execute()
-                user_data = user_res.data
+                user_res = supabase.from_("profiles").select("*").eq("pilgrim_id", u_id).single().execute()
+                user_data = user_res.data if user_res.data else {}
                 age_map = {"1-15": 0, "16-60": 1, "61+": 2}
-                age_enc = age_map.get(user_data['age_group'], 1)
+                age_enc = age_map.get(user_data.get('age_group'), 1)
                 has_chronic = user_data.get('has_chronic', False)
                 role = 'pilgrim'
             except Exception:
                 age_enc, has_chronic, role = 1, False, 'pilgrim'
 
-        # 3. جلب بيانات الطقس الحالية
+        # 3. جلب بيانات الطقس الحالية لتمريرها للمودل
         temp, hum, wind = get_makkah_weather()
         temp = round(temp)
         chronic_input_value = 100 if has_chronic else 0
 
-        # 4. تجهيز المصفوفة النهائية للمودل
+        # 4. تجهيز مصفوفة الميزات النهائية التي يتوقعها نموذج الذكاء الاصطناعي
         raw_input = [
             age_enc,
-            1800000,
+            1800000,  # عدد الحجاج التقريبي الإجمالي بالمنظومة
             temp,
             hum,
             wind,
-            resources['hospitals_count'],
-            resources['health_centers_count'],
+            resources.get('hospitals_count', 36),
+            resources.get('health_centers_count', 192),
             bed_cap,
-            resources['staff_count'],
-            resources['ambulances'],
+            resources.get('staff_count', 50000),
+            resources.get('ambulances', 900),
             chronic_input_value
         ]
 
         input_df = pd.DataFrame([raw_input], columns=FEATURES)
-        disease_name = user_data.get('disease_detail', 'none')
+        disease_name = user_data.get('disease_detail', 'none') if user_data else 'none'
 
-        # 5. استدعاء المودل وحساب النتائج
+        # 5. استدعاء معالطق المودل (الذكاء الاصطناعي) لحساب النتائج ومستوى الخطورة
         results = predict_logic(
             input_df,
             role,
@@ -132,16 +145,16 @@ def predict():
             occupied_beds=occ_beds
         )
 
-        # 6. حفظ التنبؤ في جدول predictionsً
+        # 6. أتمتة حفظ التنبؤ الحالي في قاعدة البيانات للرجوع التاريخي
         try:
-            supabase.table("predictions").insert({
+            supabase.from_("predictions").insert({
                 "user_id": u_id,
-                "heatstroke_predicted": int(results['heatstroke']),
-                "risk_level": results['risk_level'],
-                "occupied_beds": occ_beds
+                "heatstroke_predicted": int(results.get('heatstroke', 0)),
+                "risk_level": results.get('risk_level', 'Low'),
+                "occupied_beds": int(occ_beds)
             }).execute()
         except Exception as save_error:
-            print(f"Log: Prediction not saved to DB: {save_error}")
+            print(f"Log: Prediction snapshot could not be stored in DB: {save_error}")
 
         return jsonify({
             "status": "success",
@@ -150,25 +163,26 @@ def predict():
         })
 
     except Exception as e:
-        print(f"Critical Error in Predict: {e}")
+        print(f"Critical Error in Predict Endpoint: {e}")
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
 @app.route('/api/send-report', methods=['POST'])
 def send_report():
     try:
-        data = request.json
+        data = request.json or {}
         report_data = {
             "location_name": data.get('location'),
             "readiness_level": data.get('type', 'General'),
             "status": "Active"
         }
-        supabase.table("emergency_team").insert(report_data).execute()
+        supabase.from_("emergency_team").insert(report_data).execute()
         return jsonify({"status": "success"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
 if __name__ == '__main__':
+    # تهيئة رقم المنفذ المتوافق مع خوادم الاستضافة السحابية
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
