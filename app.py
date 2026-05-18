@@ -15,10 +15,11 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 WEATHER_API_KEY = "0aac0c7a97816848748a258ddcb625b0"
-FEATURES = ['Age Group_Encoded', 'Number of pilgrims', 'Temperature_C',
-            'Humidity_Pct', 'Wind_Speed_kmh', 'Hospitals',
-            'Health_Centers', 'Bed_Capacity', 'Staff_Count', 'Ambulances',
-            'Expected_Chronic_Count']
+FEATURES = [
+    'age_group', 'total_pilgrims', 'temperature', 'humidity', 'wind_speed',
+    'hospitals_count', 'health_centers_count', 'total_beds', 'staff_count',
+    'ambulances', 'chronic_input'
+]
 
 
 def get_makkah_weather():
@@ -76,8 +77,9 @@ def predict():
 
         user_data = {}
         disease_name = 'none'
+        diet_status = 'follows'
 
-        # 1. جلب الموارد الصحية من الجدول بالتحديث البرمجي الجديد
+        # جلب الموارد الصحية الحقيقية من قاعدة البيانات
         SPECIFIC_ID = "4e13e939-e91e-4eb0-abe4-2bd111445112"
         res_query = supabase.from_("health_resources").select("*").eq("id", SPECIFIC_ID).execute()
 
@@ -85,27 +87,22 @@ def predict():
             resources = res_query.data[0]
         else:
             resources = {
-                'total_beds': 10240,
-                'occupied_beds': 0,
-                'hospitals_count': 36,
-                'health_centers_count': 192,
-                'staff_count': 50000,
-                'ambulances': 900
+                'total_beds': 10240, 'occupied_beds': 0, 'hospitals_count': 36,
+                'health_centers_count': 192, 'staff_count': 50000, 'ambulances': 900
             }
 
         bed_cap = resources.get('total_beds', 10240)
 
-        # 2. تحديد بيانات المدخلات بناءً على نوع المستخدم
-        if target == 'officer' or u_id == 'OFFICER-01':
+        # منطق استخراج بيانات الحاج بدقة لمنع تمرير حقول فارغة للمودل
+        if str(target).lower() == 'officer' or u_id == 'OFFICER-01':
             age_enc = 1
             has_chronic = False
             role = 'officer'
-            disease_name = 'none'
         else:
             role = 'pilgrim'
             user_res = supabase.from_("profiles").select("*").eq("id", u_id).execute()
             if not user_res.data:
-                user_res = supabase.from_("profiles").select("*").eq("pilgrim_id", u_id).execute()
+                user_res = supabase.from_("profiles").select("*").eq("phone_number", u_id).execute()
 
             if user_res.data:
                 user_data = user_res.data[0]
@@ -113,40 +110,41 @@ def predict():
                 age_enc = age_map.get(user_data.get('age_group'), 1)
                 has_chronic = user_data.get('has_chronic', False)
                 disease_name = user_data.get('disease_detail', 'none')
+                diet_status = user_data.get('diet_status', 'follows')
             else:
                 age_enc, has_chronic = 1, False
 
-        # 3. جلب بيانات الطقس الحالية لتمريرها للمودل
+        # جلب بيانات الطقس الحالية
         temp, hum, wind = get_makkah_weather()
         temp = round(temp)
         chronic_input_value = 100 if has_chronic else 0
 
-        # 4. تجهيز مصفوفة الميزات النهائية التي يتوقعها نموذج الذكاء الاصطناعي
+        # بناء المصفوفة الرقمية الخام مباشرة لضمان عدم تأثرها باختلاف أسماء الأعمدة
         raw_input = [
-            age_enc,
-            1800000,  # عدد الحجاج التقريبي الإجمالي بالمنظومة
-            temp,
-            hum,
-            wind,
-            resources.get('hospitals_count', 36),
-            resources.get('health_centers_count', 192),
-            bed_cap,
-            resources.get('staff_count', 50000),
-            resources.get('ambulances', 900),
-            chronic_input_value
+            float(age_enc),
+            1800000.0,
+            float(temp),
+            float(hum),
+            float(wind),
+            float(resources.get('hospitals_count', 36)),
+            float(resources.get('health_centers_count', 192)),
+            float(bed_cap),
+            float(resources.get('staff_count', 50000)),
+            float(resources.get('ambulances', 900)),
+            float(chronic_input_value)
         ]
 
+        # تحويلها إلى DataFrame مع مطابقة الأعمدة تماماً
         input_df = pd.DataFrame([raw_input], columns=FEATURES)
 
-        # 5. استدعاء معالج المودل (هنا الحقيقة كاملة)
-        # إذا انهار المودل، سنقبض على رسالة الخطأ الرياضية ونرسلها مباشرة للمتصفح لمعرفتها
-        # 5. استدعاء معالج المودل وحساب النتائج
+        # استدعاء المودل الحقيقي وتمرير المتغيرات المطلوبة كاملة
         try:
             results = predict_logic(
                 input_df,
                 role,
                 has_chronic=has_chronic,
                 disease_detail=disease_name,
+                diet_status=diet_status,
                 bed_capacity=bed_cap,
                 occupied_beds=occ_beds
             )
@@ -154,10 +152,10 @@ def predict():
             print(f"!!! MODEL LOGIC CRASHED !!! Reason: {model_error}")
             return jsonify({
                 "status": "error",
-                "message": f"انهار المودل داخلياً بسبب: {str(model_error)}"
+                "message": f"انهار المودل داخلياً بسبب مصفوفة المدخلات: {str(model_error)}"
             }), 200
 
-        # 6. حفظ التنبؤ الحالي في قاعدة البيانات للرجوع التاريخي
+        # حفظ التنبؤ في قاعدة البيانات للرجوع التاريخي
         try:
             supabase.from_("predictions").insert({
                 "user_id": str(u_id),
@@ -165,11 +163,10 @@ def predict():
                 "risk_level": results.get('risk_level', 'Low'),
                 "occupied_beds": int(occ_beds)
             }).execute()
-        except Exception as save_error:
-            print(f"Log: Prediction snapshot could not be stored in DB: {save_error}")
+        except Exception as db_err:
+            print(f"Database Log: {db_err}")
 
-        # 🌟 هنا الحل القاطع: نرسل الحقل بكل المسميات الممكنة للفرونت إند لضمان القراءة
-        final_recommendations = results.get('recommendation', results.get('rec', ["الوضع مستقر"]))
+        final_recommendations = results.get('recommendation', ["الوضع مستقر بالمشاعر المقدسة."])
 
         return jsonify({
             "status": "success",
@@ -177,9 +174,9 @@ def predict():
                 "heatstroke": results.get('heatstroke', 0),
                 "risk_level": results.get('risk_level', 'Low'),
                 "risk_color": results.get('risk_color', 'green'),
-                "recommendation": final_recommendations,  # للمفرد (الحاج)
-                "recommendations": final_recommendations,  # للجمع (الموظف)
-                "rec": final_recommendations,  # للاختصار
+                "recommendation": final_recommendations,
+                "recommendations": final_recommendations,
+                "rec": final_recommendations,
                 "graph_path": "static/report.png"
             },
             "weather": {"temp": temp, "humidity": hum}
