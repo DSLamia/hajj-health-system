@@ -140,11 +140,12 @@ def predict():
 
         # 5. استدعاء معالج المودل (هنا الحقيقة كاملة)
         # إذا انهار المودل، سنقبض على رسالة الخطأ الرياضية ونرسلها مباشرة للمتصفح لمعرفتها
+        # 5. استدعاء معالج المودل وحساب النتائج
         try:
             results = predict_logic(
                 input_df,
                 role,
-                has_chronic,
+                has_chronic=has_chronic,
                 disease_detail=disease_name,
                 bed_capacity=bed_cap,
                 occupied_beds=occ_beds
@@ -153,26 +154,40 @@ def predict():
             print(f"!!! MODEL LOGIC CRASHED !!! Reason: {model_error}")
             return jsonify({
                 "status": "error",
-                "message": f"انهار المودل الذكي داخلياً بسبب: {str(model_error)}"
-            }), 200  # نرجع كود 200 عشان المتصفح ما يعلق ويطبع لك النص الصريح للخطأ
+                "message": f"انهار المودل داخلياً بسبب: {str(model_error)}"
+            }), 200
 
-        # 6. أتمتة حفظ التنبؤ الحالي في قاعدة البيانات
-        supabase.from_("predictions").insert({
-            "user_id": str(u_id),
-            "heatstroke_predicted": int(results.get('heatstroke', 0)),
-            "risk_level": results.get('risk_level', 'Low'),
-            "occupied_beds": int(occ_beds)
-        }).execute()
+        # 6. حفظ التنبؤ الحالي في قاعدة البيانات للرجوع التاريخي
+        try:
+            supabase.from_("predictions").insert({
+                "user_id": str(u_id),
+                "heatstroke_predicted": int(results.get('heatstroke', 0)),
+                "risk_level": results.get('risk_level', 'Low'),
+                "occupied_beds": int(occ_beds)
+            }).execute()
+        except Exception as save_error:
+            print(f"Log: Prediction snapshot could not be stored in DB: {save_error}")
+
+        # 🌟 هنا الحل القاطع: نرسل الحقل بكل المسميات الممكنة للفرونت إند لضمان القراءة
+        final_recommendations = results.get('recommendation', results.get('rec', ["الوضع مستقر"]))
 
         return jsonify({
             "status": "success",
-            "results": results,
+            "results": {
+                "heatstroke": results.get('heatstroke', 0),
+                "risk_level": results.get('risk_level', 'Low'),
+                "risk_color": results.get('risk_color', 'green'),
+                "recommendation": final_recommendations,  # للمفرد (الحاج)
+                "recommendations": final_recommendations,  # للجمع (الموظف)
+                "rec": final_recommendations,  # للاختصار
+                "graph_path": "static/report.png"
+            },
             "weather": {"temp": temp, "humidity": hum}
         })
 
     except Exception as e:
         print(f"Critical Error in Predict Endpoint: {e}")
-        return jsonify({"status": "error", "message": f"خطأ عام بالسيرفر: {str(e)}"}), 200
+        return jsonify({"status": "error", "message": str(e)}), 200
 @app.route('/api/send-report', methods=['POST'])
 def send_report():
     try:
