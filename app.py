@@ -72,19 +72,19 @@ def predict():
     try:
         data = request.get_json() or {}
 
-        # 1. قراءة البيانات الجوية الحقيقية القادمة من الواجهة
+        # 1. قراءة البيانات الجوية القادمة من الواجهة
         temp = float(data.get('temperature', 35.0))
         humidity = float(data.get('humidity', 50.0))
         wind_speed = float(data.get('wind_speed', 10.0))
         crowd_density = float(data.get('crowding_density', 1.0))
 
-        # 2. تحديد هوية المستخدم (إذا كان حاج)
+        # 2. تحديد هوية المستخدم
         phone_number = data.get('phone_number')
         user_id = data.get('user_id')
 
         # فئات رقمية حقيقية للمودل
-        age_group = 1.0  # القيمة الافتراضية للوحة العامة (الفئة المتوسطة)
-        chronic_disease = 0.0  # القيمة الافتراضية للوحة العامة (لا يوجد مرض)
+        age_group = 1.0
+        chronic_disease = 0.0
 
         # إذا الطلب جاي من واجهة حاج ومعه بيانات، نسحب بياناته الحقيقية من Supabase
         if phone_number or user_id:
@@ -92,28 +92,28 @@ def predict():
             if phone_number:
                 user_query = user_query.eq('phone_number', str(phone_number))
             else:
-                user_query = user_query.eq('id', str(user_id))
+                user_query = user_query.eq('ID', str(user_id))
 
             user_res = user_query.execute()
 
             if user_res.data and len(user_res.data) > 0:
                 profile = user_res.data[0]
-                # تحويل العمر حقيقيًا لفئة رقمية
+                # تحويل العمر لفئة رقمية
                 raw_age = int(profile.get('age', 35))
                 age_group = 0.0 if raw_age <= 15 else (2.0 if raw_age >= 61 else 1.0)
 
-                # تحويل المرض المزمن حقيقيًا
+                # تحويل المرض المزمن
                 has_chronic = profile.get('chronic_diseases', False)
                 chronic_disease = 100.0 if has_chronic else 0.0
 
-        # 3. بناء المصفوفة الـ 11 الحقيقية بالترتيب الرياضي الصارم للمودل
+        # 3. بناء المصفوفة الـ 11 الحقيقية بالترتيب للمودل
         features_dict = {
             'Age_Group': [float(age_group)],
             'Crowd_Density': [float(crowd_density)],
             'Temperature': [float(temp)],
             'Humidity': [float(humidity)],
             'Wind_Speed': [float(wind_speed)],
-            'Hospitals_Count': [3.0],  # البنية التحتية الحقيقية المتاحة في مكة
+            'Hospitals_Count': [3.0],
             'Health_Centers_Count': [10.0],
             'Total_Bed_Capacity': [150.0],
             'Staff_Count': [45.0],
@@ -123,11 +123,11 @@ def predict():
 
         input_df = pd.DataFrame(features_dict)
 
-        # 4. استدعاء مودل الـ ONNX الحقيقي وتحجيمه بالـ Scaler
+        # 4. استدعاء مودل  ONNX
         from model_handler import predict_logic
         heatstroke_count = predict_logic(input_df, temp)
 
-        # تصنيف مستوى الخطر حقيقيًا بناءً على مخرجات المودل الحقيقية
+        # تصنيف مستوى الخطر بناءً على مخرجات المودل
         risk_level = "مستقر" if heatstroke_count < 5 else ("متوسط" if heatstroke_count < 15 else "حرج")
 
         return jsonify({
@@ -138,13 +138,13 @@ def predict():
         })
 
     except Exception as main_e:
-        # 🌟 الحركة الذكية: نطبع الخطأ الحقيقي في السيرفر ونرسله للواجهة عشان نشوفه في الكونسول ونعرف العلة فورًا
+        # نطبع الخطأ في السيرفر ونرسله للواجهة
         error_msg = f"Inference Error: {str(main_e)}"
         print(f"🚨 {error_msg}")
         return jsonify({
             "status": "error",
             "message": error_msg
-        }), 400  # غيرناه لـ 400 عشان المتصفح ما يعطيك 500 مبهمة ويطلع لك الكلمة الحقيقية المسببة للمشكلة!
+        }), 400  
 @app.route('/api/send-report', methods=['POST'])
 def send_report():
     try:
