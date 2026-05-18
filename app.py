@@ -70,117 +70,81 @@ def emergency():
 @app.route('/api/predict', methods=['POST'])
 def predict():
     try:
-        data = request.json or {}
-        u_id = data.get('user_id', 'GUEST')
-        target = data.get('target_audience', 'pilgrim')
-        occ_beds = data.get('occupied_beds', 0)
+        data = request.get_json() or {}
 
-        user_data = {}
-        disease_name = 'none'
-        diet_status = 'follows'
-        has_chronic = False
-        age_enc = 1
+        # 1. جلب البيانات الجوية والكثافة القادمة من الواجهة
+        temp = float(data.get('temperature', 35.0))
+        humidity = float(data.get('humidity', 50.0))
+        wind_speed = float(data.get('wind_speed', 10.0))
+        crowd_density = float(data.get('crowding_density', 1.0))  
 
-        # 1. جلب الموارد الصحية الحقيقية من قاعدة البيانات
-        SPECIFIC_ID = "4e13e939-e91e-4eb0-abe4-2bd111445112"
-        res_query = supabase.from_("health_resources").select("*").eq("id", SPECIFIC_ID).execute()
+        # 2. تحديد هل الطلب جاي من حاج محدد أو من لوحة الطوارئ العامة
+        phone_number = data.get('phone_number')
+        user_id = data.get('user_id')
 
-        if res_query.data:
-            resources = res_query.data[0]
-        else:
-            resources = {
-                'total_beds': 10240, 'occupied_beds': 0, 'hospitals_count': 36,
-                'health_centers_count': 192, 'staff_count': 50000, 'ambulances': 900
-            }
+        # القيم الافتراضية للحاج في لوحة الطوارئ العامة
+        age_group = 1.0
+        chronic_disease = 0.0
 
-        bed_cap = resources.get('total_beds', 10240)
+        # إذا فيه بيانات مستخدم، نروح نجيبها من سوبابيس
+        if phone_number or user_id:
+            try:
+                # استعلام يبحث بالجوال أولاً ثم بالـ ID
+                user_query = supabase.table('profiles').select('*')
+                if phone_number:
+                    user_query = user_query.eq('phone_number', str(phone_number))
+                else:
+                    user_query = user_query.eq('id', str(user_id))
 
-        # 2. استخراج بيانات الحاج الحقيقية ومطابقتها برقم الهاتف أو الـ ID
-        if str(target).lower() == 'officer' or u_id == 'OFFICER-01':
-            age_enc = 1
-            has_chronic = False
-            role = 'officer'
-        else:
-            role = 'pilgrim'
-            # استعلام يفحص رقم الهاتف أولاً كقيمة نصية صريحة
-            user_res = supabase.from_("profiles").select("*").eq("phone_number", str(u_id)).execute()
-            if not user_res.data:
-                user_res = supabase.from_("profiles").select("*").eq("id", str(u_id)).execute()
+                user_res = user_query.execute()
 
-            if user_res.data:
-                user_data = user_res.data[0]
-                age_map = {"1-15": 0, "16-60": 1, "61+": 2}
-                age_enc = age_map.get(user_data.get('age_group'), 1)
-                has_chronic = bool(user_data.get('has_chronic', False))
-                disease_name = user_data.get('disease_detail', 'none')
-                diet_status = user_data.get('diet_status', 'follows')
-            else:
-                age_enc, has_chronic = 1, False
+                if user_res.data and len(user_res.data) > 0:
+                    profile = user_res.data[0]
+                    # تحويل العمر لفئة رقمية (0 أو 1 أو 2)
+                    raw_age = int(profile.get('age', 35))
+                    age_group = 0.0 if raw_age <= 15 else (2.0 if raw_age >= 61 else 1.0)
 
-        # 3. جلب بيانات الطقس الحقيقية
-        temp, hum, wind = get_makkah_weather()
-        temp = round(temp)
-        chronic_input_value = 100.0 if has_chronic else 0.0
+                    # تحويل المرض المزمن لـ 100.0 أو 0.0   للمودل
+                    has_chronic = profile.get('chronic_diseases', False)
+                    chronic_disease = 100.0 if has_chronic else 0.0
+            except Exception as supabase_err:
+                print(f"Supabase fetch warning: {supabase_err}, using baseline profile metrics.")
 
-        # 4. بناء مصفوفة الميزات الحقيقية الـ 11 بالترتيب الرياضي Scaler والمودل الحقيقي
-        raw_input = [
-            float(age_enc),
-            1800000.0,
-            float(temp),
-            float(hum),
-            float(wind),
-            float(resources.get('hospitals_count', 36)),
-            float(resources.get('health_centers_count', 192)),
-            float(bed_cap),
-            float(resources.get('staff_count', 50000)),
-            float(resources.get('ambulances', 900)),
-            float(chronic_input_value)
-        ]
+        # 3. بناء مصفوفة الـ 11 ميزة بالترتيب اللي يتوقعه المودل والـ Scaler
+        features_dict = {
+            'Age_Group': [float(age_group)],
+            'Crowd_Density': [float(crowd_density)],
+            'Temperature': [float(temp)],
+            'Humidity': [float(humidity)],
+            'Wind_Speed': [float(wind_speed)],
+            'Hospitals_Count': [3.0],  # قيم افتراضية للبنية التحتية في مكة
+            'Health_Centers_Count': [10.0],
+            'Total_Bed_Capacity': [150.0],
+            'Staff_Count': [45.0],
+            'Ambulance_Fleet_Size': [12.0],
+            'Chronic_Disease_Input': [float(chronic_disease)]
+        }
 
-        # تحويلها إلى DataFrame مع مطابقة الميزات تماماً
-        input_df = pd.DataFrame([raw_input], columns=FEATURES)
+        # تحويلها لـ DataFrame
+        input_df = pd.DataFrame(features_dict)
 
-        # 5. استدعاء المودل الحقيقي لمعالجة الـ ONNX
-        results = predict_logic(
-            input_df,
-            role,
-            has_chronic=has_chronic,
-            disease_detail=disease_name,
-            diet_status=diet_status,
-            bed_capacity=bed_cap,
-            occupied_beds=occ_beds
-        )
+        # 4. إرسالها للمودل  في model_handler
+        from model_handler import predict_logic
+        heatstroke_count = predict_logic(input_df, temp)
 
-        # 6. حفظ التنبؤ الحقيقي في سوبابيس بالسنتكس الصحيح
-        try:
-            supabase.from_("predictions").insert({
-                "user_id": str(u_id),
-                "heatstroke_predicted": int(results.get('heatstroke', 0)),
-                "risk_level": results.get('risk_level', 'Low'),
-                "occupied_beds": int(occ_beds)
-            }).execute()
-        except Exception as db_err:
-            print(f"Database Log: {db_err}")
-
-        final_recommendations = results.get('recommendation', ["الوضع مستقر بالمشاعر المقدسة."])
+        # تحديد مستوى الخطر بناءً على رقم القادم من الـ ONNX
+        risk_level = "مستقر" if heatstroke_count < 5 else ("متوسط" if heatstroke_count < 15 else "حرج")
 
         return jsonify({
             "status": "success",
-            "results": {
-                "heatstroke": results.get('heatstroke', 0),
-                "risk_level": results.get('risk_level', 'Low'),
-                "risk_color": results.get('risk_color', 'green'),
-                "recommendation": final_recommendations,
-                "recommendations": final_recommendations,
-                "rec": final_recommendations,
-                "graph_path": "static/report.png"
-            },
-            "weather": {"temp": temp, "humidity": hum}
+            "heatstroke_predictions": heatstroke_count,
+            "risk_level": risk_level,
+            "recommendations": f"النظام مستقر والتنبؤ الحالي يسجل {heatstroke_count} حالة إجهاد محتملة."
         })
 
-    except Exception as e:
-        print(f"Critical Error in Predict Endpoint: {e}")
-        return jsonify({"status": "error", "message": f"انهار التحليل الحقيقي: {str(e)}"}), 500
+    except Exception as main_e:
+        print(f"🚨 Production Endpoint Crash: {main_e}")
+        return jsonify({"status": "error", "message": str(main_e)}), 500
 @app.route('/api/send-report', methods=['POST'])
 def send_report():
     try:
