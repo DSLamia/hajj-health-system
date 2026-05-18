@@ -95,22 +95,32 @@ def predict():
 
         bed_cap = resources.get('total_beds', 10240)
 
-        # 2. تحديد بيانات المدخلات بناءً على نوع المستخدم
-        if target == 'officer':
+        # 2. تحديد بيانات المدخلات بناءً على نوع المستخدم لتفادي انهيار السيرفر
+        if target == 'officer' or u_id == 'OFFICER-01':
             age_enc = 1
             has_chronic = False
             role = 'officer'
             disease_name = 'none'
         else:
+            role = 'pilgrim'
             try:
-                user_res = supabase.from_("profiles").select("*").eq("pilgrim_id", u_id).single().execute()
-                user_data = user_res.data if user_res.data else {}
-                age_map = {"1-15": 0, "16-60": 1, "61+": 2}
-                age_enc = age_map.get(user_data.get('age_group'), 1)
-                has_chronic = user_data.get('has_chronic', False)
-                role = 'pilgrim'
-            except Exception:
-                age_enc, has_chronic, role = 1, False, 'pilgrim'
+                # محاولة مرنة وفحص الحساب عبر حقل id أو pilgrim_id
+                user_res = supabase.from_("profiles").select("*").eq("id", u_id).execute()
+
+                if not user_res.data:
+                    user_res = supabase.from_("profiles").select("*").eq("pilgrim_id", u_id).execute()
+
+                if user_res.data:
+                    user_data = user_res.data[0]
+                    age_map = {"1-15": 0, "16-60": 1, "61+": 2}
+                    age_enc = age_map.get(user_data.get('age_group'), 1)
+                    has_chronic = user_data.get('has_chronic', False)
+                    disease_name = user_data.get('disease_detail', 'none')
+                else:
+                    age_enc, has_chronic = 1, False
+            except Exception as profile_err:
+                print(f"Log: Profile sub-fetch bypassed, using defaults: {profile_err}")
+                age_enc, has_chronic = 1, False
 
         # 3. جلب بيانات الطقس الحالية لتمريرها للمودل
         temp, hum, wind = get_makkah_weather()
@@ -133,9 +143,8 @@ def predict():
         ]
 
         input_df = pd.DataFrame([raw_input], columns=FEATURES)
-        disease_name = user_data.get('disease_detail', 'none') if user_data else 'none'
 
-        # 5. استدعاء معالطق المودل (الذكاء الاصطناعي) لحساب النتائج ومستوى الخطورة
+        # 5. استدعاء معالج المودل وحساب النتائج ومستوى الخطورة
         results = predict_logic(
             input_df,
             role,
@@ -145,10 +154,10 @@ def predict():
             occupied_beds=occ_beds
         )
 
-        # 6. أتمتة حفظ التنبؤ الحالي في قاعدة البيانات للرجوع التاريخي
+        # 6. حفظ التنبؤ الحالي في قاعدة البيانات للرجوع التاريخي
         try:
             supabase.from_("predictions").insert({
-                "user_id": u_id,
+                "user_id": str(u_id),
                 "heatstroke_predicted": int(results.get('heatstroke', 0)),
                 "risk_level": results.get('risk_level', 'Low'),
                 "occupied_beds": int(occ_beds)
@@ -164,9 +173,7 @@ def predict():
 
     except Exception as e:
         print(f"Critical Error in Predict Endpoint: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 400
-
-
+        return jsonify({"status": "error", "message": str(e)}), 500
 @app.route('/api/send-report', methods=['POST'])
 def send_report():
     try:
