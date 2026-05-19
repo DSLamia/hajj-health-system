@@ -246,10 +246,8 @@ async function getWeather() {
     } catch(e) {}
 }
 
-// دالة جلب التنبؤ
 async function fetchPrediction(userId) {
     try {
-        //  إظهار مؤشر الانتظار
         const labelEl = document.getElementById('riskLabel');
         if (labelEl) labelEl.innerText = "جاري تحليل البيانات والمؤشرات الطبية الحية...";
 
@@ -269,13 +267,11 @@ async function fetchPrediction(userId) {
             const risk = d.risk_level || 'Low';
             const color = d.risk_color || 'green';
 
-            // 1. تحديث نصوص الألوان ومستوى الخطر في الواجهة
             if (labelEl) {
                 labelEl.innerText = "تنبؤ نظام مكة الذكي: " + risk;
                 labelEl.style.color = color;
             }
 
-            // 2. تحريك مؤشر الخطر
             const ptr = document.getElementById('riskPointer');
             if (ptr) {
                 if (risk === 'Low') {
@@ -286,17 +282,9 @@ async function fetchPrediction(userId) {
                     ptr.style.right = '90%';
                 }
             }
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
 
-            // 3. استخراج التوصيات الوقائية الحقيقية من المودل
             let h = `<h3 style="color:#8B4513; margin-bottom:15px;"><i class="fas fa-lightbulb"></i> توصية وقائية مخصصة لك</h3>`;
-
-            //  جلب التوصيات التي يرسلها الباك إند
-            const recList = d.results.recommendation || d.results.recommendations || d.results.rec || [];
+            const recList = d.recommendations || d.rec || [];
 
             if(Array.isArray(recList) && recList.length > 0) {
                 recList.forEach((l, i) => {
@@ -332,7 +320,6 @@ function showMainApp(user) {
     fetchPrayerTimes();
     getWeather();
 
-    //  تمرير رقم الهاتف المسجل مباشرة إلى المودل
     const phoneToUse = user.phone_number;
     fetchPrediction(phoneToUse);
 }

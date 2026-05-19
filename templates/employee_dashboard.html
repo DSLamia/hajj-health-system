@@ -153,11 +153,22 @@ async function fetchGlobalPrediction() {
         const total = res ? res.total_beds : 10240;
         const occRate = Math.round((occupied / total) * 100);
 
-        // المسار متوافق مع السيرفر
-  const response = await fetch('/api/predict', {
+        const currentTemp = parseFloat(document.getElementById('tempValue').innerText) || 32.2;
+        const currentHum = parseFloat(document.getElementById('humidityValue').innerText) || 9.0;
+
+        const response = await fetch('/api/predict', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ user_id: 'OFFICER-01', target_audience: 'officer', bed_capacity: totalBeds, occupied_beds: occupiedBeds, temperature: temp, humidity: hum, wind_speed: wind, crowding_density: crowd })
+            body: JSON.stringify({
+                user_id: 'OFFICER-01',
+                target_audience: 'officer',
+                bed_capacity: parseFloat(total),
+                occupied_beds: parseFloat(occupied),
+                temperature: currentTemp,
+                humidity: currentHum,
+                wind_speed: 10.0,
+                crowding_density: 1.0
+            })
         });
         const d = await response.json();
 
@@ -170,9 +181,11 @@ async function fetchGlobalPrediction() {
             let rawRecommendation = d.recommendations;
             let cleanRec = Array.isArray(rawRecommendation) ? rawRecommendation[0] : rawRecommendation;
 
-            cleanRec = cleanRec.replace(/.*نسبة الإشغال الحالية.*/g, '').replace(/.*نظام مستقر.*/g, '');
+            if (typeof cleanRec === 'string') {
+                cleanRec = cleanRec.replace(/.*نسبة الإشغال الحالية.*/g, '').replace(/.*نظام مستقر.*/g, '');
+            }
 
-            if (!cleanRec.trim()) {
+            if (!cleanRec || !cleanRec.trim()) {
                 cleanRec = d.risk_level === 'Low' ? "يرجى اتخاذ إجراءات احترازية فوراً" : ".";
             }
 
@@ -180,11 +193,11 @@ async function fetchGlobalPrediction() {
             let statusEmoji = "🟢";
             let statusColor = "green";
 
-            if (results.risk_level === 'High') {
+            if (d.risk_level === 'High') {
                 statusText = "حرجة";
                 statusEmoji = "🚨";
                 statusColor = "red";
-            } else if (results.risk_level === 'Moderate' || results.risk_level === 'Medium') {
+            } else if (d.risk_level === 'Moderate' || d.risk_level === 'Medium') {
                 statusText = "متوسطة الخطورة";
                 statusEmoji = "⚠️";
                 statusColor = "orange";
@@ -267,7 +280,7 @@ async function updateBedStats() {
 }
 
 async function loadInitialData() {
-    fetchWeatherForStaff();
+    await fetchWeatherForStaff();
     try {
         const { data: res } = await _supabase.from('health_resources').select('*').limit(1).single();
         if (res) {
