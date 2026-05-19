@@ -29,6 +29,66 @@
         .list-item { border-bottom: 1px solid rgba(0,0,0,0.2); padding: 12px 0; font-weight: 900; display: flex; justify-content: space-between; }
         .center-wrapper { display: flex; justify-content: center; align-items: center; width: 100%; margin-top: 25px; clear: both; }
         .logout-bar { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px; border: 2px solid #000; margin-bottom: 20px; font-weight: 700; }
+
+        /* الأنماط الخاصة بنافذة التنبيه المخصصة */
+        .custom-alert-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .custom-alert-box {
+            background: #ffffff;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            border: 1px solid rgba(0,0,0,0.1);
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .custom-alert-title {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #111;
+            margin-bottom: 15px;
+        }
+
+        .custom-alert-message {
+            font-size: 1.05rem;
+            color: #444;
+            line-height: 1.6;
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+
+        .custom-alert-btn {
+            background: #000000;
+            color: #ffffff;
+            border: none;
+            padding: 12px 35px;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .custom-alert-btn:hover {
+            background: #333333;
+        }
     </style>
 </head>
 <body>
@@ -131,6 +191,14 @@
     </div>
 </div>
 
+<div id="customAlert" class="custom-alert-overlay">
+    <div class="custom-alert-box" id="customAlertBox">
+        <div class="custom-alert-title" id="customAlertTitle">تنبيه النظام</div>
+        <div class="custom-alert-message" id="customAlertMessage"></div>
+        <button class="custom-alert-btn" onclick="closeCustomAlert()">موافق</button>
+    </div>
+</div>
+
 <script>
 const _supabase = supabase.createClient(
     'https://rmpmbnmmgxsbxcvcbkwb.supabase.co',
@@ -139,9 +207,41 @@ const _supabase = supabase.createClient(
 
 const USER_ROLE = "{{ session.get('role', 'officer') }}";
 
+// دوال تشغيل وإغلاق التنبيه المخصص الموحد
+function showCustomAlert(title, message, redirectUrl = null) {
+    document.getElementById('customAlertTitle').innerText = title;
+    document.getElementById('customAlertMessage').innerText = message;
+    const alertOverlay = document.getElementById('customAlert');
+    alertOverlay.style.display = 'flex';
+
+    // الاحتفاظ برابط التوجيه إن وجد في خاصية مؤقتة داخل الزر
+    const btn = document.querySelector('.custom-alert-btn');
+    if (redirectUrl) {
+        btn.setAttribute('data-redirect', redirectUrl);
+    } else {
+        btn.removeAttribute('data-redirect');
+    }
+
+    setTimeout(() => {
+        document.getElementById('customAlertBox').style.transform = 'scale(1)';
+    }, 10);
+}
+
+function closeCustomAlert() {
+    document.getElementById('customAlertBox').style.transform = 'scale(0.9)';
+    const btn = document.querySelector('.custom-alert-btn');
+    const redirectUrl = btn.getAttribute('data-redirect');
+
+    setTimeout(() => {
+        document.getElementById('customAlert').style.display = 'none';
+        if (redirectUrl) {
+            window.location.href = redirectUrl;
+        }
+    }, 150);
+}
+
 if (USER_ROLE !== 'officer') {
-    alert("⛔ خطأ استيقاف: ليس لديك صلاحية الوصول لهذه اللوحة الإدارية.");
-    window.location.href = '/login';
+    showCustomAlert("⛔ خطأ استيقاف", "ليس لديك صلاحية الوصول لهذه اللوحة الإدارية.", "/login");
 }
 
 function togglePage(pageId) {
@@ -232,10 +332,10 @@ async function submitReport() {
     try {
         const { error } = await _supabase.from('emergency_team').insert([{ location_name: loc, readiness_level: type, status: 'Active', description: desc }]);
         if (error) throw error;
-        alert("تم إرسال البلاغ بنجاح");
+        showCustomAlert("✅ تم الإرسال", "تم إرسال البلاغ بنجاح وتوثيقه في النظام المركزي.");
         loadInitialData();
         togglePage('homeSection');
-    } catch (err) { alert("خطأ في قاعدة البيانات"); }
+    } catch (err) { showCustomAlert("❌ خطأ بقاعدة البيانات", "حدثت مشكلة أثناء محاولة حفظ البلاغ."); }
 }
 
 async function fetchReportsFromDB() {
@@ -279,8 +379,8 @@ async function updateBedStats() {
         const { data: res } = await _supabase.from('health_resources').select('id').limit(1).single();
         await _supabase.from('health_resources').update({ occupied_beds: occ }).eq('id', res.id);
         await loadInitialData();
-        alert("تم التحديث ومزامنة البيانات");
-    } catch (err) { alert("خطأ في التحديث"); }
+        showCustomAlert("🔄 تحديث المزامنة", "تم تحديث عدد الأسرة بنجاح ومزامنة المؤشرات مع خادم مكة الذكي.");
+    } catch (err) { showCustomAlert("❌ خطأ في التحديث", "فشلت عملية تحديث البيانات في قاعدة البيانات."); }
 }
 
 async function loadInitialData() {

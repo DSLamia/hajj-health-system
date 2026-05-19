@@ -21,7 +21,6 @@ body {
     background-color: #000;
 }
 
-/* الصفحة الأولى - الكعبة */
 #firstScreen {
     position: fixed;
     width: 100%;
@@ -29,7 +28,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background-image: url("/static/makk.PNG"); /* تعديل المسار للمجلد الاستاتيكي */
+    background-image: url("/static/makk.PNG");
     background-size: cover;
     background-position: center;
     z-index: 2000;
@@ -46,7 +45,6 @@ body {
     transform: scale(1.1);
 }
 
-/* الصفحة الثانية - الفيديو والترحيب */
 #secondScreen {
     position: fixed;
     width: 100%;
@@ -118,7 +116,6 @@ body {
     transform: scale(1.1);
 }
 
-/* صفحة البطاقات - خلفية الصورة */
 #cardsScreen {
     position: fixed;
     width: 100%;
@@ -126,13 +123,12 @@ body {
     display: none;
     align-items: center;
     justify-content: center;
-    background-image: url("/static/makk.PNG"); /* تعديل المسار */
+    background-image: url("/static/makk.PNG");
     background-size: cover;
     background-position: center;
     z-index: 1000;
 }
 
-/* البطاقات */
 .grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -146,7 +142,7 @@ body {
 }
 
 .card {
-    background-image: url("/static/IMG_9826.jpg"); /* تعديل المسار */
+    background-image: url("/static/IMG_9826.jpg");
     background-size: cover;
     background-position: center;
     padding: 70px 30px;
@@ -169,7 +165,7 @@ body {
     content: "";
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55); /* زيادة التباين قليلاً وضوح النص فوق الصورة */
+    background: rgba(0, 0, 0, 0.55);
     border-radius: 20px;
     transition: 0.3s;
 }
@@ -187,6 +183,70 @@ body {
 .card:hover {
     transform: translateY(-8px);
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+}
+
+.custom-alert-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 5000;
+    animation: fadeIn 0.3s ease;
+}
+
+.custom-alert-box {
+    background: #ffffff;
+    width: 90%;
+    max-width: 500px;
+    border-radius: 24px;
+    padding: 30px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    border: 1px solid rgba(0,0,0,0.1);
+    text-align: center;
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+.custom-alert-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #111;
+    margin-bottom: 15px;
+}
+
+.custom-alert-message {
+    font-size: 1.05rem;
+    color: #444;
+    line-height: 1.6;
+    margin-bottom: 25px;
+    font-weight: 600;
+}
+
+.custom-alert-btn {
+    background: #000000;
+    color: #ffffff;
+    border: none;
+    padding: 12px 35px;
+    border-radius: 50px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.custom-alert-btn:hover {
+    background: #333333;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 </style>
 </head>
@@ -222,6 +282,14 @@ body {
     </div>
 </div>
 
+<div id="customAlert" class="custom-alert-overlay">
+    <div class="custom-alert-box" id="customAlertBox">
+        <div class="custom-alert-title" id="customAlertTitle">تنبيه النظام</div>
+        <div class="custom-alert-message" id="customAlertMessage"></div>
+        <button class="custom-alert-btn" onclick="closeCustomAlert()">موافق</button>
+    </div>
+</div>
+
 <audio id="audio">
     <source src="/static/talbiyah.mov" type="audio/mp4">
     <source src="/static/talbiyah.mov" type="audio/quicktime">
@@ -234,6 +302,23 @@ body {
         { auth: { persistSession: false } }
     );
 
+function showCustomAlert(title, message) {
+    document.getElementById('customAlertTitle').innerText = title;
+    document.getElementById('customAlertMessage').innerText = message;
+    const alertOverlay = document.getElementById('customAlert');
+    alertOverlay.style.display = 'flex';
+    setTimeout(() => {
+        document.getElementById('customAlertBox').style.transform = 'scale(1)';
+    }, 10);
+}
+
+function closeCustomAlert() {
+    document.getElementById('customAlertBox').style.transform = 'scale(0.9)';
+    setTimeout(() => {
+        document.getElementById('customAlert').style.display = 'none';
+    }, 150);
+}
+
 function goToSecond() {
     document.getElementById("firstScreen").style.display = "none";
     document.getElementById("secondScreen").style.display = "flex";
@@ -244,7 +329,7 @@ function goToSecond() {
     const audio = document.getElementById("audio");
     if(audio) {
         audio.play().catch(function(error) {
-            console.log("تشغيل صوت التلبية تلقائياً واجه قيود المتصفح: " + error);
+            showCustomAlert("⚙️ إشعار الوسائط", "تشغيل صوت التلبية تلقائياً واجه قيود المتصفح الحالية.");
         });
     }
 }

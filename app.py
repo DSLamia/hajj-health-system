@@ -10,7 +10,6 @@ CORS(app)
 
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'mecca_secure_health_key_2026')
 
-# إعدادات سوبابيس
 SUPABASE_URL = "https://rmpmbnmmgxsbxcvcbkwb.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtcG1ibm1tZ3hzYnhjdmNia3diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODcwMzgsImV4cCI6MjA4NzM2MzAzOH0.Piu2jTOwdfihFgEsELJyTHXChGgV95abKAy4-9lsAHc"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -89,8 +88,6 @@ def emergency():
     return render_template('emrg.html')
 
 
-# ==================== الـ APIs الحية ومعالجة البيانات الخلفية ====================
-
 @app.route('/api/update-task', methods=['POST'])
 def update_task():
     try:
@@ -130,6 +127,7 @@ def predict():
         chronic_disease = 0.0
         has_chronic = False
         disease_detail = "none"
+        diet_status = "follows"
 
         is_valid_uuid = (user_id and len(str(user_id)) == 36 and '-' in str(user_id))
 
@@ -149,6 +147,7 @@ def predict():
                     has_chronic = profile.get('chronic_diseases', False)
                     chronic_disease = 100.0 if has_chronic else 0.0
                     disease_detail = str(profile.get('disease_type', 'none')).lower()
+                    diet_status = str(profile.get('diet_compliance', 'follows')).lower()
             except Exception:
                 pass
 
@@ -175,31 +174,97 @@ def predict():
         else:
             heatstroke_count = int(result_model)
 
-        heat_level = "High" if temp >= 40 else ("Moderate" if 30 <= temp < 40 else "Low")
+        if temp >= 40:
+            heat_level, color = "High", "red"
+        elif 30 <= temp < 40:
+            heat_level, color = "Moderate", "orange"
+        else:
+            heat_level, color = "Low", "green"
 
         if str(target_audience).lower() == "pilgrim":
             p_risk_points = 0
-            disease_weights = {"heart": 4, "asthma": 3.5, "hypertension": 3, "diabetes1": 2, "none": 0}
-            if has_chronic: p_risk_points += disease_weights.get(disease_detail, 1)
-            if age_group_enc >= 2: p_risk_points += 2
+            disease_weights = {
+                "heart": 4,
+                "asthma": 3.5,
+                "hypertension": 3,
+                "neurological": 2.5,
+                "diabetes1": 2,
+                "diabetes2": 2,
+                "cancer": 1.5,
+                "hepatitis": 1,
+                "rheumatism": 1,
+                "none": 0
+            }
+
+            if has_chronic:
+                p_risk_points += disease_weights.get(disease_detail, 1)
+
+            if has_chronic and diet_status == "not_follows":
+                p_risk_points += 0.25
+
+            if age_group_enc >= 2:
+                p_risk_points += 2
 
             if heat_level == "High" and p_risk_points >= 5:
-                risk, color = "High", "red"
-                rec = ["🚨 خطورة حرجة على سلامتك نظراً لارتفاع مؤشر الخطورة الحراري ومؤشراتك الصحية الحالية."]
+                risk = "High"
+                color = "red"
+                rec = [
+                    f" 🚨  درجة الحرارة ({int(temp)}°C) مرتفعة جداً وتشكل خطورة على سلامتك.",
+                    "يرجى البقاء في مكان بارد وتجنب التحرك أو بذل أي مجهود بدني حالياً.",
+                    "احرص على شرب السوائل بانتظام لتعويض ما يفقده الجسم.",
+                    "نرجو منك التوجه لأقرب نقطة طبية فوراً في حال الشعور بأي إعياء."
+                ]
+            elif heat_level == "Moderate" and p_risk_points >= 3:
+                risk = "Moderate"
+                color = "orange"
+                rec = [
+                    f"⚠️ الأجواء حالياً ({int(temp)}°C) تتطلب منك أخذ الحيطة والحذر.",
+                    "ننصحك باستخدام المظلة الشمسية عند الضرورة لتجنب الإجهاد الحراري.",
+                    "احرص على تناول السوائل والأملاح لتعويض المجهود البدني المبذول.",
+                    "يفضل تأجيل أي تحركات غير ضرورية حتى تنكسر حدة الشمس."
+                ]
             else:
-                risk, color = "Low", "green"
-                rec = ["✅ المؤشرات البيئية مستقرة وضمن الحدود الآمنة للحركة البنائية للنسك."]
+                risk = "Low"
+                color = "green"
+                rec = [
+                    f"✅ المؤشرات البيئية ({int(temp)}°C) ضمن النطاق الآمن والمستقر.",
+                    "يمكنك إكمال مناسكك مع الاستمرار في شرب السوائل كإجراء احترازي.",
+                    "حاول أخذ فترات راحة قصيرة بين الحين والآخر للحفاظ على نشاطك.",
+                    "تأكد من وجود تهوية جيدة في مكان إقامتك لضمان راحتك."
+                ]
         else:
-            actual_ratio = float(occupied_beds) / float(bed_capacity) if bed_capacity > 0 else 0
+            try:
+                actual_ratio = float(occupied_beds) / float(bed_capacity) if bed_capacity > 0 else 0
+            except Exception:
+                actual_ratio = 0
+
             occ_perc = int(actual_ratio * 100)
-            if heat_level == "High" or actual_ratio >= 0.75:
-                risk, color = "High", "red"
+            ratio = heatstroke_count / bed_capacity if bed_capacity > 0 else 0
+
+            if heat_level == "High" or actual_ratio >= 0.75 or ratio > 0.10:
+                risk = "High"
+                color = "red"
                 rec = [
-                    f"🚨 إشعار المنظومة: القدرة الاستيعابية الطبية للمنشأة حرجة جداً، نسبة الإشغال الفعلي للأسرة بلغت {occ_perc}%."]
+                    f"🚨 تحذير حرج: نسبة الإشغال الميداني ({occ_perc}%) تجاوزت حد الأمان الحرج.",
+                    "مستويات الخطورة البيئية مرتفعة جداً؛ يرجى تفعيل خطة الطوارئ فوراً.",
+                    "توجيه مصفوفة الدعم الطبي الإضافي لتقليل الضغط على المستشفيات الحالية."
+                ]
+            elif actual_ratio >= 0.50:
+                risk = "Moderate"
+                color = "orange"
+                rec = [
+                    f"⚠️ تنبيه متوسط: نسبة الإشغال الحالية ({occ_perc}%) في تصاعد مستمر.",
+                    "يرجى توجيه الحجاج للمسارات الأقل كثافة وإخطار المراكز الصحية الميدانية.",
+                    "رفع جاهزية الكوادر الطبية المتنقلة لاستقبال أي حالات إجهاد حراري محتملة."
+                ]
             else:
-                risk, color = "Low", "green"
+                risk = "Low"
+                color = "green"
                 rec = [
-                    f"🟢 تقرير الحالة الجارية: السعة الاستيعابية والمنظومة التشغيلية مستقرة، الإشغال الحالي {occ_perc}%."]
+                    f"🟢 حالة المنظومة الطبية والبيئية مستقرة تماماً وجاهزيتها متميزة.",
+                    f"نسبة إشغال الأسرة الحالية هي {occ_perc}% وهي ضمن النطاق الطبيعي.",
+                    "توزيع الكثافات البشرية يسير بشكل ممتاز بالتنسيق مع غرف العمليات."
+                ]
 
         return jsonify({
             "status": "success",
