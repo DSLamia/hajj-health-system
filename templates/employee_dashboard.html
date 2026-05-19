@@ -28,11 +28,17 @@
         .btn-black:hover { background: #fff; color: #000; }
         .list-item { border-bottom: 1px solid rgba(0,0,0,0.2); padding: 12px 0; font-weight: 900; display: flex; justify-content: space-between; }
         .center-wrapper { display: flex; justify-content: center; align-items: center; width: 100%; margin-top: 25px; clear: both; }
+        .logout-bar { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px; border: 2px solid #000; margin-bottom: 20px; font-weight: 700; }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <div class="logout-bar">
+        <span>👤 مسؤول غرفة القيادة المتصل حالياً بالمنظومة المركزية</span>
+        <button class="btn-black" style="background: #8b0000; border-color:#8b0000; padding: 6px 15px; font-size:13px;" onclick="location.href='/logout'">تسجيل الخروج الآمن</button>
+    </div>
+
     <div id="homeSection" class="page-section active-section">
         <h1 style="text-align: center; font-family: 'Unbounded'; margin-bottom: 30px; font-weight: 900;">نظام إدارة مكة الذكي - مركز الطوارئ</h1>
         <div class="metrics-grid">
@@ -45,7 +51,7 @@
             <div class="section-header" style="background: #8b0000;">توجيهات الميدان النشطة</div>
             <div id="emergencyDirections"><div class="list-item">جاري تحليل البيانات من خادم مكة الذكي...</div></div>
         </div>
-        <div style="display: flex; justify-content: center; gap: 15px; margin-top: 20px;">
+        <div style="display: flex; justify-content: center; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
             <button class="btn-black" onclick="togglePage('reportFormSection')">تقديم تقرير</button>
             <button class="btn-black" onclick="togglePage('reportsListSection')">التقارير الحالية</button>
             <button class="btn-black" onclick="togglePage('statsSection')">الإحصائيات</button>
@@ -78,7 +84,7 @@
                 <textarea id="repDesc" class="form-control" rows="3"></textarea>
             </div>
             <button class="btn-black" style="width:100%" onclick="submitReport()">إرسال</button>
-            <button class="btn-black" style="width:100%; margin-top:10px; background:#666" onclick="togglePage('homeSection')">رجوع</button>
+            <button class="btn-black" style="width:100%; margin-top:10px; background:#666; border-color:#666;" onclick="togglePage('homeSection')">رجوع</button>
         </div>
     </div>
 
@@ -130,6 +136,13 @@ const _supabase = supabase.createClient(
     'https://rmpmbnmmgxsbxcvcbkwb.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtcG1ibm1tZ3hzYnhjdmNia3diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODcwMzgsImV4cCI6MjA4NzM2MzAzOH0.Piu2jTOwdfihFgEsELJyTHXChGgV95abKAy4-9lsAHc'
 );
+
+// التحقق من صلاحية المسؤول القادمة من الجلسة بالسيرفر
+const USER_ROLE = "{{ session.get('role', 'officer') }}";
+if (USER_ROLE !== 'officer') {
+    alert("⛔ خطأ استيقاف: ليس لديك صلاحية الوصول لهذه اللوحة الإدارية.");
+    window.location.href = '/login';
+}
 
 function togglePage(pageId) {
     document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active-section'));
@@ -189,18 +202,12 @@ async function fetchGlobalPrediction() {
                 cleanRec = d.risk_level === 'Low' ? "يرجى اتخاذ إجراءات احترازية فوراً" : ".";
             }
 
-            let statusText = "مستقرة";
-            let statusEmoji = "🟢";
-            let statusColor = "green";
+            let statusText = "مستقرة"; let statusEmoji = "🟢"; let statusColor = "green";
 
             if (d.risk_level === 'High') {
-                statusText = "حرجة";
-                statusEmoji = "🚨";
-                statusColor = "red";
+                statusText = "حرجة"; statusEmoji = "🚨"; statusColor = "red";
             } else if (d.risk_level === 'Moderate' || d.risk_level === 'Medium') {
-                statusText = "متوسطة الخطورة";
-                statusEmoji = "⚠️";
-                statusColor = "orange";
+                statusText = "متوسطة الخطورة"; statusEmoji = "⚠️"; statusColor = "orange";
             }
 
             document.getElementById('emergencyDirections').innerHTML = `
@@ -243,15 +250,12 @@ async function fetchReportsFromDB() {
             const row = tbody.insertRow();
             const reportTime = rep.created_at ? new Date(rep.created_at).toLocaleTimeString('ar-SA') : 'قيد المعالجة';
 
-            let statusStyle = "";
-            let statusText = rep.status || "نشط";
+            let statusStyle = ""; let statusText = rep.status || "نشط";
 
             if (statusText === "Active" || statusText === "نشط") {
-                statusStyle = "color: green;";
-                statusText = "نشط";
+                statusStyle = "color: green;"; statusText = "نشط";
             } else {
-                statusStyle = "color: gray; text-decoration: line-through;";
-                statusText = "مكتمل";
+                statusStyle = "color: gray; text-decoration: line-through;"; statusText = "مكتمل";
             }
 
             row.innerHTML = `
@@ -293,6 +297,7 @@ async function loadInitialData() {
     fetchReportsFromDB();
 }
 window.onload = loadInitialData;
+setInterval(fetchReportsFromDB, 5000);
 </script>
 </body>
 </html>

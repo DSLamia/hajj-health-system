@@ -18,7 +18,7 @@
 
         body {
             min-height: 100vh;
-            background-image: url('/static/makk.PNG'); /* تم تعديل المسار ليعمل من المجلد الثابت */
+            background-image: url('/static/makk.PNG');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
@@ -63,27 +63,33 @@
         .risk-low { background: #ccffcc; color: green; padding: 5px; border-radius: 5px; font-weight: 900; }
         .btn-full { width: 100%; background: #000; color: #fff; padding: 15px; font-weight: 900; font-size: 18px; border: none; margin-top: 10px; cursor: pointer; transition: 0.3s; }
         .btn-full:hover { background: #333; }
+        .logout-bar { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px; border: 2px solid #000; margin-bottom: 20px; font-weight: 700; }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <div class="logout-bar">
+        <span>🚑 طاقم الاستجابة الإسعافي المتصل حالياً بالمنظومة</span>
+        <button class="action-btn" style="background: #8b0000; border: 1px solid #8b0000; color:#fff;" onclick="location.href='/logout'">تسجيل الخروج الآمن</button>
+    </div>
+
     <h1 style="text-align: center; font-family: 'Unbounded'; margin-bottom: 30px; font-weight: 900; text-shadow: 2px 2px #fff;">نظام توجيه الفرق الإسعافية</h1>
 
-<div class="status-grid">
-    <div class="status-item">
-        <span class="label">حالة التوفر</span>
-        <span id="unitStatus" class="val" style="color: #8b0000;">غير جاهز (انتظار الفحص)</span>
+    <div class="status-grid">
+        <div class="status-item">
+            <span class="label">حالة التوفر</span>
+            <span id="unitStatus" class="val" style="color: #8b0000;">غير جاهز (انتظار الفحص)</span>
+        </div>
+        <div class="status-item">
+            <span class="label">المنشآت الصحية المتاحة</span>
+            <span id="facilitiesCount" class="val" style="font-size: 16px;">جاري الجلب...</span>
+        </div>
+        <div class="status-item">
+            <span class="label">إجمالي الأسرة الشاغرة</span>
+            <span id="vacantBedsCount" class="val">-- سرير</span>
+        </div>
     </div>
-    <div class="status-item">
-        <span class="label">المنشآت الصحية المتاحة</span>
-        <span id="facilitiesCount" class="val" style="font-size: 16px;">جاري الجلب...</span>
-    </div>
-    <div class="status-item">
-        <span class="label">إجمالي الأسرة الشاغرة</span>
-        <span id="vacantBedsCount" class="val">-- سرير</span>
-    </div>
-</div>
 
     <div class="card-box">
         <div class="section-header">البلاغات النشطة وتنبؤات الحالة</div>
@@ -105,44 +111,41 @@
     </div>
 
     <div class="card-box">
-    <div class="section-header" style="background: #000;">جاهزية الوحدة والمواد الطبية</div>
-    <table id="suppliesTable">
-        <thead>
-            <tr>
-                <th>المادة</th>
-                <th>الكمية</th>
-                <th>تاريخ الصلاحية</th>
-                <th>الحالة</th>
-                <th>الإجراء الميداني</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>أسطوانة أكسجين (كبير)</td>
-                <td>02</td>
-                <td>2026/12</td>
-                <td class="supply-status" style="color: #8b0000; font-weight: 900;">لم يتم الفحص</td>
-                <td><button class="action-btn check-btn" onclick="toggleSupply(this)">فحص</button></td>
-            </tr>
-            <tr>
-                <td>جهاز الصدمات الكهربائية</td>
-                <td>01</td>
-                <td>فحص دوري: تم</td>
-                <td class="supply-status" style="color: #8b0000; font-weight: 900;">لم يتم الفحص</td>
-                <td><button class="action-btn check-btn" onclick="toggleSupply(this)">فحص</button></td>
-            </tr>
-            <tr>
-                <td>أدوية الطوارئ الأساسية</td>
-                <td>حقيبة كاملة</td>
-                <td>2027/05</td>
-                <td class="supply-status" style="color: #8b0000; font-weight: 900;">لم يتم الفحص</td>
-                <td><button class="action-btn check-btn" onclick="toggleSupply(this)">فحص</button></td>
-            </tr>
-        </tbody>
-    </table>
-
-    <div style="display: flex; justify-content: center; margin-top: 20px;">
-        <button class="btn-full" style="max-width: 300px; background: #000;" onclick="location.href='/employee'">العودة للرئيسية</button>
+        <div class="section-header" style="background: #000;">جاهزية الوحدة والمواد الطبية</div>
+        <table id="suppliesTable">
+            <thead>
+                <tr>
+                    <th>المادة</th>
+                    <th>الكمية</th>
+                    <th>تاريخ الصلاحية</th>
+                    <th>الحالة</th>
+                    <th>الإجراء الميداني</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>أسطوانة أكسجين (كبير)</td>
+                    <td>02</td>
+                    <td>2026/12</td>
+                    <td class="supply-status" style="color: #8b0000; font-weight: 900;">لم يتم الفحص</td>
+                    <td><button class="action-btn check-btn" onclick="toggleSupply(this)">فحص</button></td>
+                </tr>
+                <tr>
+                    <td>جهاز الصدمات الكهربائية</td>
+                    <td>01</td>
+                    <td>فحص دوري: تم</td>
+                    <td class="supply-status" style="color: #8b0000; font-weight: 900;">لم يتم الفحص</td>
+                    <td><button class="action-btn check-btn" onclick="toggleSupply(this)">فحص</button></td>
+                </tr>
+                <tr>
+                    <td>أدوية الطوارئ الأساسية</td>
+                    <td>حقيبة كاملة</td>
+                    <td>2027/05</td>
+                    <td class="supply-status" style="color: #8b0000; font-weight: 900;">لم يتم الفحص</td>
+                    <td><button class="action-btn check-btn" onclick="toggleSupply(this)">فحص</button></td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 </div>
 
@@ -151,6 +154,13 @@ const _supabase = supabase.createClient(
     'https://rmpmbnmmgxsbxcvcbkwb.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtcG1ibm1tZ3hzYnhjdmNia3diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODcwMzgsImV4cCI6MjA4NzM2MzAzOH0.Piu2jTOwdfihFgEsELJyTHXChGgV95abKAy4-9lsAHc'
 );
+
+// التحقق من صلاحية المسعف القادمة من السيرفر
+const USER_ROLE = "{{ session.get('role', 'paramedic') }}";
+if (USER_ROLE !== 'paramedic') {
+    alert("⛔ خطأ استيقاف: ليس لديك صلاحية الوصول لهذه الواجهة الحيوية.");
+    window.location.href = '/login';
+}
 
 const hospitalSuggestions = {
     "مشعر منى": ["مستشفى منى الطوارئ", "مستشفى منى الجسر", "مستشفى منى الوادي"],
@@ -175,7 +185,6 @@ async function loadEmergencyTasks() {
         tasks.forEach(task => {
             const row = tbody.insertRow();
 
-            // تصحيح فحص مستويات الخطورة القادمة من الـ API والـ DB
             let riskHTML = '';
             if (task.readiness_level === 'High' || task.readiness_level === 'طبية') {
                 riskHTML = '<span class="risk-high">خطر (High)</span>';
@@ -203,7 +212,6 @@ async function loadEmergencyTasks() {
                 btnStyle = "background: #28a745;";
             }
 
-            // حماية الكود في حال كان معرّف البلاغ يحمل اسم id أو emergency_id
             const taskId = task.emergency_id || task.id || "";
             const shortId = taskId.includes('-') ? taskId.slice(0,5) : taskId;
 
@@ -227,22 +235,15 @@ async function loadEmergencyTasks() {
 }
 
 async function updateTaskStatus(btn, eId) {
-    let nextStatus = '';
-    let nextText = '';
-    let nextColor = '';
+    let nextStatus = ''; let nextText = ''; let nextColor = '';
 
     if (btn.innerText === "قبول المهمة") {
-        nextStatus = 'Responding';
-        nextText = "في الطريق..";
-        nextColor = "#d4a34d";
+        nextStatus = 'Responding'; nextText = "في الطريق.."; nextColor = "#d4a34d";
     } else if (btn.innerText === "في الطريق..") {
-        nextStatus = 'Arrived';
-        nextText = "تم الوصول ✓";
-        nextColor = "#28a745";
+        nextStatus = 'Arrived'; nextText = "تم الوصول ✓"; nextColor = "#28a745";
     } else { return; }
 
     try {
-        //  تحديث المفاتيح ديناميكياً
         const { error } = await _supabase
             .from('emergency_team')
             .update({ status: nextStatus })
@@ -289,11 +290,11 @@ async function loadHealthResources() {
     }
 }
 
-// دالة التشغيل  عند تحميل الصفحة
 window.onload = function() {
     loadHealthResources();
     loadEmergencyTasks();
 };
+// مزامنة تلقائية مستمرة للبلاغات كل 5 ثوانٍ
 setInterval(loadEmergencyTasks, 5000);
 
 let checkedItemsCount = 0;
