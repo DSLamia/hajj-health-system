@@ -155,8 +155,7 @@ const _supabase = supabase.createClient(
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtcG1ibm1tZ3hzYnhjdmNia3diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODcwMzgsImV4cCI6MjA4NzM2MzAzOH0.Piu2jTOwdfihFgEsELJyTHXChGgV95abKAy4-9lsAHc'
 );
 
-// التحقق من صلاحية المسعف القادمة من السيرفر
-const USER_ROLE = "{{ session.get('role', 'paramedic') }}";
+const USER_ROLE = "{% if session and session.role %}{{ session.role }}{% else %}paramedic{% endif %}";
 if (USER_ROLE !== 'paramedic') {
     alert("⛔ خطأ استيقاف: ليس لديك صلاحية الوصول لهذه الواجهة الحيوية.");
     window.location.href = '/login';
@@ -212,8 +211,8 @@ async function loadEmergencyTasks() {
                 btnStyle = "background: #28a745;";
             }
 
-            const taskId = task.emergency_id || task.id || "";
-            const shortId = taskId.includes('-') ? taskId.slice(0,5) : taskId;
+            const taskId = task.id || task.emergency_id || "";
+            const shortId = typeof taskId === 'string' && taskId.includes('-') ? taskId.slice(0,5) : taskId;
 
             row.innerHTML = `
                 <td>#${shortId}</td>
@@ -247,7 +246,7 @@ async function updateTaskStatus(btn, eId) {
         const { error } = await _supabase
             .from('emergency_team')
             .update({ status: nextStatus })
-            .or(`emergency_id.eq.${eId},id.eq.${eId}`);
+            .eq('id', eId);
 
         if (error) throw error;
 
@@ -262,7 +261,7 @@ async function updateTaskStatus(btn, eId) {
             }
         }
     } catch (err) {
-        alert("خطأ في الاتصال بقاعدة البيانات للتحديث");
+        alert("خطأ في الاتصال بقاعدة البيانات للتحديث، يرجى المحاولة لاحقاً.");
     }
 }
 
@@ -294,7 +293,6 @@ window.onload = function() {
     loadHealthResources();
     loadEmergencyTasks();
 };
-// مزامنة تلقائية مستمرة للبلاغات كل 5 ثوانٍ
 setInterval(loadEmergencyTasks, 5000);
 
 let checkedItemsCount = 0;
