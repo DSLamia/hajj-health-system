@@ -87,23 +87,32 @@ def predict():
         chronic_disease = 0.0
 
         # إذا الطلب جاي من واجهة حاج ومعه بيانات، نسحب بياناته الحقيقية من Supabase
-        if phone_number or user_id:
-            user_query = supabase.table('profiles').select('*')
-            if phone_number:
-                user_query = user_query.eq('phone_number', str(phone_number))
-            else:
-                user_query = user_query.eq('pilgrim_id', str(user_id))
-            user_res = user_query.execute()
+        is_valid_uuid = False
+        if user_id and len(str(user_id)) == 36 and '-' in str(user_id):
+            is_valid_uuid = True
 
-            if user_res.data and len(user_res.data) > 0:
-                profile = user_res.data[0]
-                # تحويل العمر لفئة رقمية
-                raw_age = int(profile.get('age', 35))
-                age_group = 0.0 if raw_age <= 15 else (2.0 if raw_age >= 61 else 1.0)
+        if phone_number or is_valid_uuid:
+            try:
+                user_query = supabase.table('profiles').select('*')
 
-                # تحويل المرض المزمن
-                has_chronic = profile.get('chronic_diseases', False)
-                chronic_disease = 100.0 if has_chronic else 0.0
+                # إذا فيه جوال، نبحث بالجوال لأنه آمن
+                if phone_number:
+                    user_query = user_query.eq('phone_number', str(phone_number))
+                # إذا ما فيه جوال بس الـ ID عبارة عن UUID حقيقي نبحث به
+                elif is_valid_uuid:
+                    user_query = user_query.eq('pilgrim_id', str(user_id))
+
+                user_res = user_query.execute()
+
+                if user_res.data and len(user_res.data) > 0:
+                    profile = user_res.data[0]
+                    raw_age = int(profile.get('age', 35))
+                    age_group = 0.0 if raw_age <= 15 else (2.0 if raw_age >= 61 else 1.0)
+
+                    has_chronic = profile.get('chronic_diseases', False)
+                    chronic_disease = 100.0 if has_chronic else 0.0
+            except Exception as sb_e:
+                print(f"Supabase query skipped safely: {sb_e}")
 
         # 3. بناء المصفوفة الـ 11 الحقيقية بالترتيب للمودل
         features_dict = {
