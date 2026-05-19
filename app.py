@@ -8,18 +8,15 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# مفتاح سري  لتأمين الجلسات (Sessions) والخصوصية
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'mecca_secure_health_key_2026')
 
-# إعدادات سوبابيس (Supabase Production Database)
+# إعدادات سوبابيس
 SUPABASE_URL = "https://rmpmbnmmgxsbxcvcbkwb.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtcG1ibm1tZ3hzYnhjdmNia3diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODcwMzgsImV4cCI6MjA4NzM2MzAzOH0.Piu2jTOwdfihFgEsELJyTHXChGgV95abKAy4-9lsAHc"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 WEATHER_API_KEY = "0aac0c7a97816848748a258ddcb625b0"
 
-
-#  ==================== مسارات واجهات المستخدم مع التحقق  ====================
 
 @app.route('/')
 def index():
@@ -33,39 +30,33 @@ def login():
         input_pass = request.form.get('password')
 
         try:
-            # استعلام مباشر من جدول في قاعدة البيانات
             user_query = supabase.table('users_auth').select('*').eq('username', input_user).execute()
 
             if user_query.data and len(user_query.data) > 0:
                 user_record = user_query.data[0]
 
-                # التحقق من مطابقة كلمة المرور  المخزنة
                 if str(user_record.get('password')) == str(input_pass):
                     session['user'] = user_record.get('username')
                     session['role'] = user_record.get('role')
 
-                    # توجيه المستخدمين بناءً على الصلاحيات الفعلية الممنوحة لهم في النظام
                     if session['role'] == 'officer':
                         return redirect(url_for('employee_dashboard'))
                     elif session['role'] == 'paramedic':
                         return redirect(url_for('emergency'))
                     else:
-                        return render_template('login.html', error="⚠️ إشعار أمني: الصلاحية الممنوحة لهذا الحساب غير مدرجة بجدول الصلاحيات الطبية المعتمد.")
+                        return render_template('login.html',
+                                               error="⚠️ إشعار أمني: الصلاحية الممنوحة لهذا الحساب غير مدرجة بجدول الصلاحيات الطبية المعتمد.")
                 else:
                     return render_template('login.html', error="🚨 بيان الدخول خاطئ: كلمة المرور المدخلة غير متطابقة.")
             else:
-                return render_template('login.html', error="🚨 سجل مفقود: اسم المستخدم غير معرف ضمن قاعدة بيانات المنظومة الحالية.")
+                return render_template('login.html',
+                                       error="🚨 سجل مفقود: اسم المستخدم غير معرف ضمن قاعدة بيانات المنظومة الحالية.")
 
-        except Exception as db_err:
-            try:
-                return render_template('login.html', error=f"🛠️ فحص الشبكة: تعذر فحص الحساب بسبب انقطاع المزامنة اللحظية مع السيرفر السحابي.")
-            except Exception:
-                return f"<h1>🚨 بوابة منظومة مكة الطبية</h1><p>إشعار من الباك إند: تعذر الاتصال بالمشروع السحابي لبناء جلسة الدخول الآمنة.</p>"
+        except Exception:
+            return render_template('login.html',
+                                   error="🛠️ فحص الشبكة: تعذر فحص الحساب بسبب انقطاع المزامنة اللحظية مع السيرفر السحابي.")
 
-    try:
-        return render_template('login.html', error=None)
-    except Exception as template_err:
-        return f"<h1>⚙️ جدار حماية القوالب</h1><p>خطأ تصيير داخلي: قالب واجهة تسجيل الدخول تالف أو مفقود من مجلد templates.</p>"
+    return render_template('login.html', error=None)
 
 
 @app.route('/logout')
@@ -98,6 +89,29 @@ def emergency():
     return render_template('emrg.html')
 
 
+# ==================== الـ APIs الحية ومعالجة البيانات الخلفية ====================
+
+@app.route('/api/update-task', methods=['POST'])
+def update_task():
+    """تحديث حالة البلاغ الميداني مباشرة من السيرفر لتلافي خطأ الـ API Key للمتصفح"""
+    try:
+        data = request.get_json() or {}
+        task_id = data.get('id')
+        new_status = data.get('status')
+
+        if not task_id or not new_status:
+            return jsonify({"status": "error", "message": "المعطيات الميدانية غير مكتملة."}), 400
+
+        result = supabase.table('emergency_team').update({"status": new_status}).eq('id', task_id).execute()
+
+        return jsonify({"status": "success", "updated_data": result.data})
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "developer_message": "🚨 فشل تحديث المزامنة الميدانية داخلياً عبر الباك إند.",
+            "error_details": str(e)
+        }), 500
+
 
 @app.route('/api/predict', methods=['POST'])
 def predict():
@@ -117,11 +131,8 @@ def predict():
         chronic_disease = 0.0
         has_chronic = False
         disease_detail = "none"
-        diet_status = "follows"
 
-        is_valid_uuid = False
-        if user_id and len(str(user_id)) == 36 and '-' in str(user_id):
-            is_valid_uuid = True
+        is_valid_uuid = (user_id and len(str(user_id)) == 36 and '-' in str(user_id))
 
         if phone_number or is_valid_uuid:
             try:
@@ -132,7 +143,6 @@ def predict():
                     user_query = user_query.eq('pilgrim_id', str(user_id))
 
                 user_res = user_query.execute()
-
                 if user_res.data and len(user_res.data) > 0:
                     profile = user_res.data[0]
                     raw_age = int(profile.get('age', 35))
@@ -140,9 +150,8 @@ def predict():
                     has_chronic = profile.get('chronic_diseases', False)
                     chronic_disease = 100.0 if has_chronic else 0.0
                     disease_detail = str(profile.get('disease_type', 'none')).lower()
-                    diet_status = str(profile.get('diet_compliance', 'follows')).lower()
-            except Exception as sb_e:
-                print(f"Supabase context fetch skipped safely: {sb_e}")
+            except Exception:
+                pass
 
         features_dict = {
             'Age_Group': [float(age_group_enc)],
@@ -167,12 +176,7 @@ def predict():
         else:
             heatstroke_count = int(result_model)
 
-        if temp >= 40:
-            heat_level, color = "High", "red"
-        elif 30 <= temp < 40:
-            heat_level, color = "Moderate", "orange"
-        else:
-            heat_level, color = "Low", "green"
+        heat_level = "High" if temp >= 40 else ("Moderate" if 30 <= temp < 40 else "Low")
 
         if str(target_audience).lower() == "pilgrim":
             p_risk_points = 0
@@ -191,10 +195,12 @@ def predict():
             occ_perc = int(actual_ratio * 100)
             if heat_level == "High" or actual_ratio >= 0.75:
                 risk, color = "High", "red"
-                rec = [f"🚨 إشعار المنظومة: القدرة الاستيعابية الطبية للمنشأة حرجة جداً، نسبة الإشغال الفعلي للأسرة بلغت {occ_perc}%."]
+                rec = [
+                    f"🚨 إشعار المنظومة: القدرة الاستيعابية الطبية للمنشأة حرجة جداً، نسبة الإشغال الفعلي للأسرة بلغت {occ_perc}%."]
             else:
                 risk, color = "Low", "green"
-                rec = [f"🟢 تقرير الحالة الجارية: السعة الاستيعابية والمنظومة التشغيلية مستقرة، الإشغال الحالي {occ_perc}%."]
+                rec = [
+                    f"🟢 تقرير الحالة الجارية: السعة الاستيعابية والمنظومة التشغيلية مستقرة، الإشغال الحالي {occ_perc}%."]
 
         return jsonify({
             "status": "success",
@@ -206,7 +212,7 @@ def predict():
     except Exception as main_e:
         return jsonify({
             "status": "error",
-            "developer_message": "⚠️ رصد خلل بنيوي: مصفوفة المدخلات المرسلة لمعالجة الذكاء الاصطناعي مفقودة أو غير متطابقة الأبعاد مع متطلبات المودل.",
+            "developer_message": "⚠️ رصد خلل بنيوي: مصفوفة المدخلات المرسلة لمعالجة الذكاء الاصطناعي مفقودة أو غير متطابقة الأبعاد.",
             "error_details": str(main_e)
         }), 500
 
@@ -225,7 +231,7 @@ def send_report():
     except Exception as e:
         return jsonify({
             "status": "error",
-            "developer_message": "🚨 فشل مزامنة البلاغ الميداني: قاعدة البيانات السحابية رفضت إدخال السجل الجديد نظراً لعدم تطابق البنية المفتاحية وجداول المراقبة.",
+            "developer_message": "🚨 فشل مزامنة البلاغ الميداني: قاعدة البيانات السحابية رفضت إدخال السجل الجديد.",
             "system_exception": str(e)
         }), 400
 

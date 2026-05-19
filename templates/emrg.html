@@ -271,14 +271,15 @@ async function updateTaskStatus(btn, eId) {
     } else { return; }
 
     try {
-        // محاولة إرسال التحديث لسوبابيس
-        const { error } = await _supabase
-            .from('emergency_team')
-            .update({ status: nextStatus })
-            .eq('id', eId);
+        const response = await fetch('/api/update-task', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: eId, status: nextStatus })
+        });
 
-        if (error) {
-            // صياغة احترافية مخصصة للخطأ توضح معالجة البيانات بدلاً من رسالة النظام الجافة
+        const result = await response.json();
+
+        if (result.status !== 'success') {
             showCustomAlert("⚠️ تحديث حالة الاستجابة الميدانية", "حدث تضارب أثناء مزامنة الإجراء الميداني مع السيرفر السحابي. تم جدولة البلاغ لإعادة المحاولة تلقائياً لتأمين تكامل النظام.");
             return;
         }
