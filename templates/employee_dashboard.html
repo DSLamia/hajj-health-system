@@ -89,6 +89,27 @@
         .custom-alert-btn:hover {
             background: #333333;
         }
+        
+        .back-to-home {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #000000;
+    color: #ffffff;
+    text-decoration: none;
+    padding: 10px 28px;
+    border-radius: 25px;
+    font-weight: 700;
+    font-size: 14px;
+    margin-top: 15px;
+}
+
+.back-to-home:hover {
+    background: #333333;
+    color: #ffffff;
+    text-decoration: none;
+}
     </style>
 </head>
 <body>
@@ -117,7 +138,7 @@
             <button class="btn-black" onclick="togglePage('statsSection')">الإحصائيات</button>
             <a href="{{ url_for('index') }}" class="elegant-back-btn">
     <i class="fas fa-arrow-right"></i>
-    العودة إلى صفحة الخيارات     
+    العودة إلى صفحة الرئيسية     
 </a>
 </div> 
     <div id="reportFormSection" class="page-section">
