@@ -248,6 +248,15 @@ body {
     from { opacity: 0; }
     to { opacity: 1; }
 }
+    @keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(10px);
+    }
+}
 </style>
 </head>
 <body>
@@ -283,8 +292,21 @@ body {
     <div class="verse">( وَأَذِّن فِي النَّاسِ بِالْحَجِّ )</div>
     <div class="welcome">أهــلاً وسهــلاً ضــيف الرحـــمن</div>
     <div class="enter-btn" onclick="showCards()">🕋</div>
-</div>
+    <div class="enter-btn" onclick="showCards()">🕋</div>
 
+<div style="text-align:center; margin-top:10px; animation:bounce 1.5s infinite;">
+
+    <div style="
+        font-size:55px;
+        color:white;
+        text-shadow:0 0 10px rgba(0,0,0,0.8);
+        font-weight:900;
+    ">
+        ↓
+    </div>
+
+</div>
+</div>
 <div id="cardsScreen">
     <div class="grid">
         <div class="card" onclick="goToPage('/pilgrim-dashboard')">
