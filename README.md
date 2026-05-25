@@ -8,21 +8,25 @@ An advanced, AI-driven predictive health-risk framework tailored for the microcl
 
 The system operates via a tightly decoupled client-server architecture designed for zero-latency inference and absolute operational integrity.
 
-[Pilgrim/Officer Dashboard]
-│ (Real-time HTTP POST via Fetch API)
-▼
-[Flask Backend API (Render Cloud)] ───► [Supabase DB] (Profiles & Historical Logs)
-│
-├─► [Live Weather Sync (Open-Meteo API)]
-│
-▼
+<pre>
+[Pilgrim / Officer Dashboard]
+       │
+       │ (Real-time HTTP POST via Fetch API)
+       ▼
+[Flask Backend API (Render Cloud)] ──────► [Supabase DB] (Profiles & Historical Logs)
+       │
+       ├─► [Live Weather Sync (Open-Meteo API)]
+       │
+       ▼
 [Feature Alignment & Scaling Pipeline (scaler.pkl)]
-│ (Strict 11-Feature Tensor Vector)
-▼
+       │
+       │ (Strict 11-Feature Tensor Vector)
+       ▼
 [Operational Deep Learning Inference (ONNX Runtime Engine)]
-│
-▼
+       │
+       ▼
 [Dynamic Risk Level Output & Tailored Preventive Protocols]
+</pre>
 
 ---
 
@@ -64,7 +68,6 @@ The model evaluates a rigid array of **11 specific input dimensions** structured
 * `static/` — Production front-end asset bundles (UI stylesheets, iconography, video wrappers).
 * `templates/` — Interactive portal templates (Pilgrim dashboard layouts, tactical monitoring interfaces).
 * `requirements.txt` — Frozen environment deployment configuration declaring explicit dependencies (`onnxruntime`, `joblib`, `pandas`, etc.).
-
 ---
 
 ## 🎓 Academic Integrity & Transparency Statement
