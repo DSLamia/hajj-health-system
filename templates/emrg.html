@@ -186,7 +186,7 @@
 </div>
 
 <script>
-const _supabase = supabase.createClient(
+    const _supabase = supabase.createClient(
     'https://rmpmbnmmgxsbxcvcbkwb.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtcG1ibm1tZ3hzYnhjdmNia3diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODcwMzgsImV4cCI6MjA4NzM2MzAzOH0.Piu2jTOwdfihFgEsELJyTHXChGgV95abKAy4-9lsAHc'
 );
@@ -254,8 +254,7 @@ async function loadEmergencyTasks() {
                 btnText = "تم الوصول ✓"; btnStyle = "background: #28a745;";
             }
 
-            const taskId = task.id || task.emergency_id || "";
-            const filterId = task.id ? task.id : taskId;
+            const filterId = task.id || task.emergency_id || "";
 
             row.innerHTML = `
                 <td>#${typeof filterId === 'string' && filterId.includes('-') ? filterId.slice(0,5) : filterId}</td>
@@ -281,11 +280,11 @@ async function updateTaskStatus(btn, eId) {
     let nextText = '';
     let nextColor = '';
 
-    if (btn.innerText === "قبول المهمة") {
+    if (btn.innerText.trim() === "قبول المهمة") {
         nextStatus = 'Responding';
         nextText = "في الطريق..";
         nextColor = "#d4a34d";
-    } else if (btn.innerText === "في الطريق..") {
+    } else if (btn.innerText.trim() === "في الطريق..") {
         nextStatus = 'Arrived';
         nextText = "تم الوصول ✓";
         nextColor = "#28a745";

@@ -8,10 +8,8 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# مفتاح تشغيل الجلسات الآمن
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'mecca_secure_health_key_2026')
 
-# إعدادات الاتصال المباشر بقاعدة بيانات المشروع
 SUPABASE_URL = "https://rmpmbnmmgxsbxcvcbkwb.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtcG1ibm1tZ3hzYnhjdmNia3diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODcwMzgsImV4cCI6MjA4NzM2MzAzOH0.Piu2jTOwdfihFgEsELJyTHXChGgV95abKAy4-9lsAHc"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -100,14 +98,49 @@ def update_task():
         if not task_id or not new_status:
             return jsonify({"status": "error", "message": "المعطيات الميدانية غير مكتملة."}), 400
 
-        # ✨ تم التعديل هنا: الفلترة باستخدام معرف البلاغ الموحد لتفادي تعليق أزرار الجداول أونلاين
-        result = supabase.table('emergency_team').update({"status": new_status}).eq('id', task_id).execute()
+        try:
+            result = supabase.table('emergency_team').update({"status": new_status}).eq('id', task_id).execute()
+        except Exception:
+            result = supabase.table('emergency_team').update({"status": new_status}).eq('emergency_id', task_id).execute()
 
         return jsonify({"status": "success", "updated_data": result.data})
     except Exception as e:
         return jsonify({
             "status": "error",
             "developer_message": "🚨 فشل تحديث المزامنة الميدانية داخلياً عبر الباك إند.",
+            "error_details": str(e)
+        }), 500
+
+
+@app.route('/api/edit-report', methods=['POST'])
+def edit_report():
+    try:
+        data = request.get_json() or {}
+        report_id = data.get('id')
+        readiness_level = data.get('readiness_level')
+        location = data.get('location')
+        description = data.get('description')
+        status = data.get('status')
+
+        if not report_id:
+            return jsonify({"status": "error", "message": "معرف البلاغ مفقود."}), 400
+
+        update_data = {}
+        if readiness_level: update_data["readiness_level"] = readiness_level
+        if location: update_data["location_name"] = location
+        if description: update_data["description"] = description
+        if status: update_data["status"] = status
+
+        try:
+            result = supabase.table('emergency_team').update(update_data).eq('id', report_id).execute()
+        except Exception:
+            result = supabase.table('emergency_team').update(update_data).eq('emergency_id', report_id).execute()
+
+        return jsonify({"status": "success", "updated_data": result.data})
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "developer_message": "🚨 فشل حفظ التعديلات الشاملة للبلاغ في قاعدة البيانات.",
             "error_details": str(e)
         }), 500
 

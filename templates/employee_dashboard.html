@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام مركز الطوارئ - إدارة مكة</title>
+    <title>نظام micro-service مركز الطوارئ - لوحة الموظف</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Cairo:wght@400;700;900&display=swap');
@@ -30,7 +30,6 @@
         .center-wrapper { display: flex; justify-content: center; align-items: center; width: 100%; margin-top: 25px; clear: both; }
         .logout-bar { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px; border: 2px solid #000; margin-bottom: 20px; font-weight: 700; }
 
-        /* الأنماط الخاصة بنافذة التنبيه المخصصة */
         .custom-alert-overlay {
             position: fixed;
             top: 0;
@@ -168,6 +167,7 @@
                         <th>الوصف</th>
                         <th>الوقت</th>
                         <th>الحالة</th>
+                        <th>تعديل</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -325,6 +325,7 @@ async function submitReport() {
 }
 
 async function fetchReportsFromDB() {
+    if (document.querySelector('td input')) return;
     try {
         const { data, error } = await _supabase.from('emergency_team').select('*');
         if (error) throw error;
@@ -334,6 +335,7 @@ async function fetchReportsFromDB() {
 
         data.forEach(rep => {
             const row = tbody.insertRow();
+            const reportId = rep.id || rep.emergency_id;
             const reportTime = rep.created_at ? new Date(rep.created_at).toLocaleTimeString('ar-SA') : 'قيد المعالجة';
 
             let statusStyle = ""; let statusText = rep.status || "نشط";
@@ -350,6 +352,7 @@ async function fetchReportsFromDB() {
                 <td>${rep.description || '-'}</td>
                 <td>${reportTime}</td>
                 <td><span style="${statusStyle} font-weight: 900;">${statusText}</span></td>
+                <td><button class="btn-black" style="padding: 5px 10px; font-size: 12px;" onclick="editReport('${reportId}', this)">تعديل</button></td>
             `;
         });
 
@@ -357,6 +360,73 @@ async function fetchReportsFromDB() {
         document.getElementById('activeReportsLabel').innerText = activeCount;
 
     } catch (err) { console.log("Fetch Error", err); }
+}
+
+function editReport(id, btn) {
+    const row = btn.closest('tr');
+    const cells = row.querySelectorAll('td');
+
+    const currentType = cells[0].innerText;
+    const currentLoc = cells[1].innerText;
+    const currentDesc = cells[2].innerText === '-' ? '' : cells[2].innerText;
+    const currentStatus = cells[4].innerText;
+
+    cells[0].innerHTML = `<input type="text" class="form-control" style="padding:4px; font-size:12px;" value="${currentType}">`;
+    cells[1].innerHTML = `<input type="text" class="form-control" style="padding:4px; font-size:12px;" value="${currentLoc}">`;
+    cells[2].innerHTML = `<input type="text" class="form-control" style="padding:4px; font-size:12px;" value="${currentDesc}">`;
+
+    cells[4].innerHTML = `
+        <select class="form-control" style="padding:4px; font-size:12px;">
+            <option value="Active" ${currentStatus === 'نشط' ? 'selected' : ''}>نشط</option>
+            <option value="Completed" ${currentStatus === 'مكتمل' ? 'selected' : ''}>مكتمل</option>
+        </select>
+    `;
+
+    cells[5].innerHTML = `<button class="btn-black" style="padding: 5px 10px; font-size: 12px; background: green; border-color: green;" onclick="saveReport('${id}', this)">حفظ</button>`;
+}
+
+async function saveReport(id, btn) {
+    const row = btn.closest('tr');
+    const cells = row.querySelectorAll('td');
+
+    const updatedType = cells[0].querySelector('input').value;
+    const updatedLoc = cells[1].querySelector('input').value;
+    const updatedDesc = cells[2].querySelector('input').value;
+    const updatedStatus = cells[4].querySelector('select').value;
+
+    try {
+        const response = await fetch('/api/edit-report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: id,
+                readiness_level: updatedType,
+                location: updatedLoc,
+                description: updatedDesc,
+                status: updatedStatus
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            cells[0].innerText = updatedType;
+            cells[1].innerText = updatedLoc;
+            cells[2].innerText = updatedDesc || '-';
+
+            let statusStyle = updatedStatus === 'Active' ? 'color: green;' : 'color: gray; text-decoration: line-through;';
+            let statusText = updatedStatus === 'Active' ? 'نشط' : 'مكتمل';
+            cells[4].innerHTML = `<span style="${statusStyle} font-weight: 900;">${statusText}</span>`;
+
+            cells[5].innerHTML = `<button class="btn-black" style="padding: 5px 10px; font-size: 12px;" onclick="editReport('${id}', this)">تعديل</button>`;
+            showCustomAlert("✅ تم الحفظ", "تم تحديث بيانات البلاغ ومزامنتها بنجاح.");
+        } else {
+            showCustomAlert("❌ خطأ", "حدث خلل أثناء محاولة تحديث البيانات بالسيرفر.");
+        }
+    } catch (err) {
+        console.error("Fetch Error", err);
+        showCustomAlert("🚨 خطأ اتصال", "تعذر الاتصال بالسيرفر لحفظ التعديلات.");
+    }
 }
 
 async function updateBedStats() {
