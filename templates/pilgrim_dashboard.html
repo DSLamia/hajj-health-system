@@ -333,17 +333,14 @@ async function getWeather() {
 
         const d = await res.json();
         
-        // ✅ تم حذف علامة = من بداية السطر
         if (!d.current_weather || !d.hourly) {
             throw new Error("بيانات الطقس الحية غير مكتملة البنية.");
         }
 
-        // ✅ تم حذف علامة = من بداية السطر
         const currentTemp = d.current_weather.temperature;
         const tempEl = document.getElementById('tempValue');
         if (tempEl) tempEl.innerText = Math.round(currentTemp) + "°";
 
-        // ✅ تم حذف علامة = من بداية السطر
         let htm = "";
         const curH = new Date().getHours();
         for (let i = 1; i <= 6; i++) {
@@ -353,21 +350,23 @@ async function getWeather() {
         const forecastEl = document.getElementById('hourlyForecast');
         if (forecastEl) forecastEl.innerHTML = htm;
 
-        const currentHumidity = d.hourly.relativehumidity_2m ? d.hourly.relativehumidity_2m[curH] : 9.0;
-        fetchPrediction(currentTemp, d.current_weather.windspeed || 10.0, currentHumidity);
+د        const currentHumidity = d.hourly.relativehumidity_2m ? d.hourly.relativehumidity_2m[curH] : 15.0;
+        const windSpeed = d.current_weather.windspeed || 12.0;
+
+د        const phoneToUse = document.getElementById('userPhone').value || 'GUEST';
+        fetchPrediction(phoneToUse, currentTemp, windSpeed, currentHumidity);
 
     } catch (e) {
         console.error("🚨 إشعار النظام الميداني:", e.message);
         
         const labelEl = document.getElementById('riskLabel');
         if (labelEl) {
-            labelEl.style.color = "#d9534f"; // لون تنبيه احترافي
+            labelEl.style.color = "#d9534f"; 
             labelEl.innerText = "⚠️ النظام بانتظار استقرار سيرفرات الطقس العالمية الحية لإتمام التنبؤ الإحصائي.";
         }
     }
 }
-async function fetchPrediction(userId) {
-    try {
+async function fetchPrediction(userId, temp, wind, hum) { 
         const labelEl = document.getElementById('riskLabel');
         if (labelEl) labelEl.innerText = "جاري تحليل البيانات والمؤشرات الطبية الحية...";
 
@@ -377,6 +376,9 @@ async function fetchPrediction(userId) {
             body: JSON.stringify({
                 user_id: String(userId || 'GUEST'),
                 target_audience: 'pilgrim',
+                temperature: floatOrZero(temp),
+                humidity: floatOrZero(hum),        
+                wind_speed: floatOrZero(wind),   
                 occupied_beds: 0
             })
         });
@@ -428,6 +430,10 @@ async function fetchPrediction(userId) {
     }
 }
 
+function floatOrZero(val) {
+    const p = parseFloat(val);
+    return isNaN(p) ? 0.0 : p;
+}
 function showMainApp(user) {
     document.getElementById('uNameDisplay').innerText = "مرحباً بك، " + (user.full_name || "ضيفنا الكريم");
 
@@ -441,8 +447,7 @@ function showMainApp(user) {
     fetchPrayerTimes();
     getWeather();
 
-    const phoneToUse = user.phone_number;
-    fetchPrediction(phoneToUse);
+
 }
 
 document.getElementById('entryBtn').addEventListener('click', async () => {
