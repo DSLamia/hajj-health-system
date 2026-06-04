@@ -148,13 +148,32 @@ def edit_report():
 @app.route('/api/predict', methods=['POST'])
 def predict():
     try:
-        data = request.get_json() or {}
-        temp = float(data.get('temperature', 32.2))
-        humidity = float(data.get('humidity', 9.0))
-        wind_speed = float(data.get('wind_speed', 10.0))
-        crowd_density = float(data.get('crowding_density', 1.0))
-        bed_capacity = float(data.get('bed_capacity', 150.0))
-        occupied_beds = float(data.get('occupied_beds', 45.0))
+data = request.get_json() or {}
+        
+        raw_temp = data.get('temperature')
+        raw_humidity = data.get('humidity')
+        raw_wind_speed = data.get('wind_speed')
+        raw_crowd_density = data.get('crowding_density')
+        raw_bed_capacity = data.get('bed_capacity')
+        raw_occupied_beds = data.get('occupied_beds')
+        
+        invalid_inputs = []
+        for name, value in [('temperature', raw_temp), ('humidity', raw_humidity), ('wind_speed', raw_wind_speed)]:
+            if value is None or str(value).strip().lower() in ['nan', 'undefined', 'null', '']:
+                invalid_inputs.append(name)
+        
+        if invalid_inputs:
+            return jsonify({
+                "status": "error",
+                "developer_message": f"🚨 فشل التحقق: المتغيرات البيئية التالية مفقودة أو غير صالحة: {', '.join(invalid_inputs)}. تأكد من نجاح جلب بيانات الطقس في الواجهة أولاً."
+            }), 400
+
+        temp = float(raw_temp)
+        humidity = float(raw_humidity)
+        wind_speed = float(raw_wind_speed)
+        crowd_density = float(raw_crowd_density) if raw_crowd_density is not None else 1.0
+        bed_capacity = float(raw_bed_capacity) if raw_bed_capacity is not None else 150.0
+        occupied_beds = float(raw_occupied_beds) if raw_occupied_beds is not None else 45.0
         target_audience = data.get('target_audience', 'officer')
         phone_number = data.get('phone_number')
         user_id = data.get('user_id')
