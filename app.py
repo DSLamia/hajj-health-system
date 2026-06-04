@@ -4,6 +4,7 @@ import pandas as pd
 import requests
 from supabase import create_client, Client
 import os
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -146,23 +147,26 @@ def edit_report():
 
 @app.route('/api/weather-proxy', methods=['GET'])
 def weather_proxy():
-    try:
-        url = 'https://api.open-meteo.com/v1/forecast?latitude=21.4225&longitude=39.8262&current_weather=true&hourly=temperature_2m'
-        response = requests.get(url, timeout=15)
-        
-        if response.status_code != 200:
-            return jsonify({
-                "status": "error", 
-                "message": "سيرفر الطقس العالمي معطل مؤقتاً."
-            }), response.status_code
+    url = 'https://api.open-meteo.com/v1/forecast?latitude=21.4225&longitude=39.8262&current_weather=true&hourly=temperature_2m'
+    max_retries = 3
+    
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, timeout=15)
             
-        return jsonify(response.json())
-    except Exception as e:
-        return jsonify({
-            "status": "error", 
-            "message": f"تعذر الاتصال بالشبكة الخارجية: {str(e)}"
-        }), 502
-
+            if response.status_code == 200:
+                return jsonify(response.json())
+                
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️ محاولة جلب الطقس الحية رقم {attempt + 1} مستغرقة وقت طويل: {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(1.5)  # انتظر ثانية ونصف قبل إعادة المحاولة لمنع حظر Vercel
+                continue
+                
+    return jsonify({
+        "status": "error", 
+        "message": "سيرفر الطقس العالمي مستغرق وقت طويل للاستجابة حالياً."
+    }), 504
 
 @app.route('/api/predict', methods=['POST'])
 def predict():
@@ -333,43 +337,9 @@ def predict():
             "developer_message": "⚠️ رصد خلل بنيوي داخلي أثناء المعالجة.",
             "error_details": str(main_e)
         }), 500
-@app.route('/api/send-report', methods=['POST'])
 
+@app.route('/api/send-report', methods=['POST'])
 def send_report():
-
-    try:
-
-        data = request.json or {}
-
-        report_data = {
-
-            "location_name": data.get('location'),
-
-            "readiness_level": data.get('type', 'General'),
-
-            "status": "Active"
-
-        }
-
-        supabase.from_("emergency_team").insert(report_data).execute()
-
-        return jsonify({"status": "success"})
-
-    except Exception as e:
-
-        return jsonify({
-
-            "status": "error",
-
-            "developer_message": "🚨 فشل مزامنة البلاغ الميداني: قاعدة البيانات السحابية رفضت إدخال السجل الجديد.",
-
-            "system_exception": str(e)
-
-        }), 400
-
-
-@app.route('/api/send-report', methods=['POST'])
-def send_report_v2():
     try:
         data = request.json or {}
         report_data = {
