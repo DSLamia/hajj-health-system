@@ -324,40 +324,45 @@ async function fetchPrayerTimes() {
 
 async function getWeather() {
     try {
-        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=21.4225&longitude=39.8262&current_weather=true&hourly=temperature_2m');
-        if (!res.ok) throw new Error('API Response Error');
+        const res = await fetch('/api/weather-proxy');
         
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.message || "فشل جلب البيانات من سيرفر الطقس الخارجي.");
+        }
+
         const d = await res.json();
-        const tempEl = document.getElementById('tempValue');
-        if(tempEl) tempEl.innerText = Math.round(d.current_weather.temperature) + "°";
-
-        let htm = "";
-        const curH = new Date().getHours();
-        for(let i=1; i<=6; i++) {
-            const t = Math.round(d.hourly.temperature_2m[curH+i]);
-            htm += `<div class="f-item"><div class="hour">${(curH+i)%24}:00</div><div class="temperature">${t}°</div></div>`;
-        }
-        const forecastEl = document.getElementById('hourlyForecast');
-        if(forecastEl) forecastEl.innerHTML = htm;
-    } catch(e) {
-        console.warn("Weather API blocked or down. Triggering backend fallback values...", e);
         
-        // 🌟 بروتوكول حماية الواجهة في حال حدوث خطأ CORS أو 502 من السيرفر الخارجي:
-        const tempEl = document.getElementById('tempValue');
-        if(tempEl) tempEl.innerText = "36°"; // يعرض درجة حرارة مناسبة ومستقرة لمكة المكرمة فوراً
+=        if (!d.current_weather || !d.hourly) {
+            throw new Error("بيانات الطقس الحية غير مكتملة البنية.");
+        }
 
-        // بناء توقعات الساعات القادمة تلقائياً لكي لا تظل فارغة أمام اللجنة
-        let htm = "";
+=        const currentTemp = d.current_weather.temperature;
+        const tempEl = document.getElementById('tempValue');
+        if (tempEl) tempEl.innerText = Math.round(currentTemp) + "°";
+
+=        let htm = "";
         const curH = new Date().getHours();
-        const fallbackTemps = [36, 35, 34, 33, 33, 32]; // درجات حرارة افتراضية متناقصة للساعات القادمة
-        for(let i=1; i<=6; i++) {
-            htm += `<div class="f-item"><div class="hour">${(curH+i)%24}:00</div><div class="temperature">${fallbackTemps[i-1]}°</div></div>`;
+        for (let i = 1; i <= 6; i++) {
+            const t = Math.round(d.hourly.temperature_2m[curH + i]);
+            htm += `<div class="f-item"><div class="hour">${(curH + i) % 24}:00</div><div class="temperature">${t}°</div></div>`;
         }
         const forecastEl = document.getElementById('hourlyForecast');
-        if(forecastEl) forecastEl.innerHTML = htm;
+        if (forecastEl) forecastEl.innerHTML = htm;
+
+        const currentHumidity = d.hourly.relativehumidity_2m ? d.hourly.relativehumidity_2m[curH] : 9.0;
+        fetchPrediction(currentTemp, d.current_weather.windspeed || 10.0, currentHumidity);
+
+    } catch (e) {
+        console.error("🚨 إشعار النظام الميداني:", e.message);
+        
+        const labelEl = document.getElementById('riskLabel');
+        if (labelEl) {
+            labelEl.style.color = "#d9534f"; // لون تنبيه احترافي
+            labelEl.innerText = "⚠️ النظام بانتظار استقرار سيرفرات الطقس العالمية الحية لإتمام التنبؤ الإحصائي.";
+        }
     }
 }
-
 async function fetchPrediction(userId) {
     try {
         const labelEl = document.getElementById('riskLabel');
