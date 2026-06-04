@@ -144,7 +144,26 @@ def edit_report():
             "error_details": str(e)
         }), 500
 
-
+@app.route('/api/weather-proxy')
+def weather_proxy():
+    try:
+        url = 'https://api.open-meteo.com/v1/forecast?latitude=21.4225&longitude=39.8262&current_weather=true&hourly=temperature_2m'
+        response = requests.get(url, timeout=5)
+        
+        # إذا كان سيرفر الطقس الخارجي يعطي 502 أو معطل
+        if response.status_code != 200:
+            return jsonify({
+                "status": "error", 
+                "message": f"سيرفر الطقس الخارجي يعاني من عطل حالياً برمز استجابة {response.status_code}"
+            }), response.status_code
+            
+        return jsonify(response.json())
+    except Exception as e:
+        return jsonify({
+            "status": "error", 
+            "message": f"تعذر الاتصال بسيرفر الطقس: {str(e)}"
+        }), 502
+        
 @app.route('/api/predict', methods=['POST'])
 
 def predict():
