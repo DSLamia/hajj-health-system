@@ -350,10 +350,10 @@ async function getWeather() {
         const forecastEl = document.getElementById('hourlyForecast');
         if (forecastEl) forecastEl.innerHTML = htm;
 
-د        const currentHumidity = d.hourly.relativehumidity_2m ? d.hourly.relativehumidity_2m[curH] : 15.0;
+       const currentHumidity = d.hourly.relativehumidity_2m ? d.hourly.relativehumidity_2m[curH] : 15.0;
         const windSpeed = d.current_weather.windspeed || 12.0;
 
-د        const phoneToUse = document.getElementById('userPhone').value || 'GUEST';
+        const phoneToUse = document.getElementById('userPhone').value || 'GUEST';
         fetchPrediction(phoneToUse, currentTemp, windSpeed, currentHumidity);
 
     } catch (e) {
