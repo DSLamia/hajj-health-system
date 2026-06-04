@@ -144,356 +144,195 @@ def edit_report():
             "error_details": str(e)
         }), 500
 
-@app.route('/api/weather-proxy')
+@app.route('/api/weather-proxy', methods=['GET'])
 def weather_proxy():
     try:
         url = 'https://api.open-meteo.com/v1/forecast?latitude=21.4225&longitude=39.8262&current_weather=true&hourly=temperature_2m'
         response = requests.get(url, timeout=5)
         
-        # إذا كان سيرفر الطقس الخارجي يعطي 502 أو معطل
         if response.status_code != 200:
             return jsonify({
                 "status": "error", 
-                "message": f"سيرفر الطقس الخارجي يعاني من عطل حالياً برمز استجابة {response.status_code}"
+                "message": "سيرفر الطقس العالمي معطل مؤقتاً."
             }), response.status_code
             
         return jsonify(response.json())
     except Exception as e:
         return jsonify({
             "status": "error", 
-            "message": f"تعذر الاتصال بسيرفر الطقس: {str(e)}"
+            "message": f"تعذر الاتصال بالشبكة الخارجية: {str(e)}"
         }), 502
-        
-@app.route('/api/predict', methods=['POST'])
 
+
+د@app.route('/api/predict', methods=['POST'])
 def predict():
-
     try:
-
         data = request.get_json() or {}
+        
+        raw_temp = data.get('temperature')
+        raw_humidity = data.get('humidity')
+        raw_wind_speed = data.get('wind_speed')
 
-        temp = float(data.get('temperature', 32.2))
-
-        humidity = float(data.get('humidity', 9.0))
-
-        wind_speed = float(data.get('wind_speed', 10.0))
-
+        temp = float(raw_temp) if (raw_temp is not None and str(raw_temp).strip() != '') else 32.2
+        humidity = float(raw_humidity) if (raw_humidity is not None and str(raw_humidity).strip() != '') else 9.0
+        wind_speed = float(raw_wind_speed) if (raw_wind_speed is not None and str(raw_wind_speed).strip() != '') else 10.0
+        
         crowd_density = float(data.get('crowding_density', 1.0))
-
         bed_capacity = float(data.get('bed_capacity', 150.0))
-
         occupied_beds = float(data.get('occupied_beds', 45.0))
-
         target_audience = data.get('target_audience', 'officer')
-
         phone_number = data.get('phone_number')
-
         user_id = data.get('user_id')
 
-
-
         age_group_enc = 1.0
-
         chronic_disease = 0.0
-
         has_chronic = False
-
         disease_detail = "none"
-
         diet_status = "follows"
-
-
 
         is_valid_uuid = (user_id and len(str(user_id)) == 36 and '-' in str(user_id))
 
-
-
         if phone_number or is_valid_uuid:
-
             try:
-
                 user_query = supabase.table('profiles').select('age, chronic_diseases, disease_type, diet_compliance')
-
                 if phone_number:
-
                     user_query = user_query.eq('phone_number', str(phone_number))
-
                 elif is_valid_uuid:
-
                     user_query = user_query.eq('pilgrim_id', str(user_id))
 
-
-
                 user_res = user_query.execute()
-
                 if user_res.data and len(user_res.data) > 0:
-
                     profile = user_res.data[0]
-
                     raw_age = int(profile.get('age', 35))
-
                     age_group_enc = 0.0 if raw_age <= 15 else (2.0 if raw_age >= 61 else 1.0)
-
                     has_chronic = profile.get('chronic_diseases', False)
-
                     chronic_disease = 100.0 if has_chronic else 0.0
-
                     disease_detail = str(profile.get('disease_type', 'none')).lower()
-
                     diet_status = str(profile.get('diet_compliance', 'follows')).lower()
-
             except Exception:
-
                 pass
 
-
-
         features_dict = {
-
             'Age_Group': [float(age_group_enc)],
-
             'Crowd_Density': [float(crowd_density)],
-
             'Temperature': [float(temp)],
-
             'Humidity': [float(humidity)],
-
-            'Wind_Speed': [wind_speed],
-
+            'Wind_Speed': [float(wind_speed)],
             'Hospitals_Count': [3.0],
-
             'Health_Centers_Count': [10.0],
-
             'Total_Bed_Capacity': [bed_capacity],
-
             'Staff_Count': [45.0],
-
             'Ambulance_Fleet_Size': [12.0],
-
             'Chronic_Disease_Input': [float(chronic_disease)]
-
         }
 
-
-
         input_df = pd.DataFrame(features_dict)
-
         from model_handler import predict_logic
-
         result_model = predict_logic(input_df, temp)
 
-
-
         if isinstance(result_model, dict):
-
             heatstroke_count = int(result_model.get('heatstroke_predictions', result_model.get('prediction', 0)))
-
         else:
-
             heatstroke_count = int(result_model)
 
-
-
         if temp >= 40:
-
             heat_level, color = "High", "red"
-
         elif 30 <= temp < 40:
-
             heat_level, color = "Moderate", "orange"
-
         else:
-
             heat_level, color = "Low", "green"
 
-
-
         if str(target_audience).lower() == "pilgrim":
-
             p_risk_points = 0
-
             disease_weights = {
-
                 "heart": 4, "asthma": 3.5, "hypertension": 3, "neurological": 2.5,
-
                 "diabetes1": 2, "diabetes2": 2, "cancer": 1.5, "hepatitis": 1,
-
                 "rheumatism": 1, "none": 0
-
             }
 
-
-
             if has_chronic:
-
                 p_risk_points += disease_weights.get(disease_detail, 1)
 
-
-
             if has_chronic and diet_status == "not_follows":
-
                 p_risk_points += 0.25
 
-
-
             if age_group_enc >= 2:
-
                 p_risk_points += 2
 
-
-
             if heat_level == "High" and p_risk_points >= 5:
-
                 risk = "High"
-
                 color = "red"
-
                 rec = [
-
                     f" 🚨  درجة الحرارة ({int(temp)}°C) مرتفعة جداً وتشكل خطورة على سلامتك.",
-
                     "يرجى البقاء في مكان بارد وتجنب التحرك أو بذل أي مجهود بدني حالياً.",
-
                     "احرص على شرب السوائل بانتظام لتعويض ما يفقده الجسم.",
-
                     "نرجو منك التوجه لأقرب نقطة طبية فوراً في حال الشعور بأي إعياء."
-
                 ]
-
             elif heat_level == "Moderate" and p_risk_points >= 3:
-
                 risk = "Moderate"
-
                 color = "orange"
-
                 rec = [
-
                     f"⚠️ الأجواء حالياً ({int(temp)}°C) تتطلب منك أخذ الحيطة والحذر.",
-
                     "ننصحك باستخدام المظلة الشمسية عند الضرورة لتجنب الإجهاد الحراري.",
-
                     "احرص على تناول السوائل والأملاح لتعويض المجهود البدني المبذول.",
-
                     "يفضل تأجيل أي تحركات غير ضرورية حتى تنكسر حدة الشمس."
-
                 ]
-
             else:
-
                 risk = "Low"
-
                 color = "green"
-
                 rec = [
-
                     f"✅ المؤشرات البيئية ({int(temp)}°C) ضمن النطاق الآمن والمستقر.",
-
                     "يمكنك إكمال مناسكك مع الاستمرار في شرب السوائل كإجراء احترازي.",
-
                     "حاول أخذ فترات راحة قصيرة بين الحين والآخر للحفاظ على نشاطك.",
-
                     "تأكد من وجود تهوية جيدة في مكان إقامتك لضمان راحتك."
-
                 ]
-
         else:
-
             try:
-
                 actual_ratio = float(occupied_beds) / float(bed_capacity) if bed_capacity > 0 else 0
-
             except Exception:
-
                 actual_ratio = 0
 
-
-
             occ_perc = int(actual_ratio * 100)
-
             ratio = heatstroke_count / bed_capacity if bed_capacity > 0 else 0
 
-
-
             if heat_level == "High" or actual_ratio >= 0.75 or ratio > 0.10:
-
                 risk = "High"
-
                 color = "red"
-
                 rec = [
-
                     f"🚨 تحذير حرج: نسبة الإشغال الميداني ({occ_perc}%) تجاوزت حد الأمان الحرج.",
-
                     "مستويات الخطورة البيئية مرتفعة جداً؛ يرجى تفعيل خطة الطوارئ فوراً.",
-
                     "توجيه مصفوفة الدعم الطبي الإضافي لتقليل الضغط على المستشفيات الحالية."
-
                 ]
-
             elif actual_ratio >= 0.50:
-
                 risk = "Moderate"
-
                 color = "orange"
-
                 rec = [
-
                     f"⚠️ تنبيه متوسط: نسبة الإشغال الحالية ({occ_perc}%) في تصاعد مستمر.",
-
                     "يرجى توجيه الحجاج للمسارات الأقل كثافة وإخطار المراكز الصحية الميدانية.",
-
                     "رفع جاهزية الكوادر الطبية المتنقلة لاستقبال أي حالات إجهاد حراري محتملة."
-
                 ]
-
             else:
-
                 risk = "Low"
-
                 color = "green"
-
                 rec = [
-
                     f"🟢 حالة المنظومة الطبية والبيئية مستقرة تماماً وجاهزيتها متميزة.",
-
                     f"نسبة إشغال الأسرة الحالية هي {occ_perc}% وهي ضمن النطاق الطبيعي.",
-
                     "توزيع الكثافات البشرية يسير بشكل ممتاز بالتنسيق مع غرف العمليات."
-
                 ]
 
-
-
         return jsonify({
-
             "status": "success",
-
             "heatstroke_predictions": heatstroke_count,
-
             "risk_level": risk,
-
             "risk_color": color,
-
             "recommendations": rec
-
         })
-
     except Exception as main_e:
-
         return jsonify({
-
             "status": "error",
-
-            "developer_message": "⚠️ رصد خلل بنيوي: مصفوفة المدخلات المرسلة لمعالجة الذكاء الاصطناعي مفقودة أو غير متطابقة الأبعاد.",
-
+            "developer_message": "⚠️ رصد خلل بنيوي داخلي أثناء المعالجة.",
             "error_details": str(main_e)
-
         }), 500
-
-
-
-
-
 @app.route('/api/send-report', methods=['POST'])
 
 def send_report():
