@@ -148,19 +148,19 @@ def edit_report():
 @app.route('/api/weather-proxy', methods=['GET'])
 def weather_proxy():
     url = 'https://api.open-meteo.com/v1/forecast?latitude=21.4225&longitude=39.8262&current_weather=true&hourly=temperature_2m'
-    max_retries = 3
+    max_retries = 2  
     
     for attempt in range(max_retries):
         try:
-            response = requests.get(url, timeout=15)
+            response = requests.get(url, timeout=4)
             
             if response.status_code == 200:
                 return jsonify(response.json())
                 
         except requests.exceptions.RequestException as e:
-            print(f"⚠️ محاولة جلب الطقس الحية رقم {attempt + 1} مستغرقة وقت طويل: {str(e)}")
+            print(f"⚠️ محاولة حية رقم {attempt + 1} مستغرقة وقت: {str(e)}")
             if attempt < max_retries - 1:
-                time.sleep(1.5)  # انتظر ثانية ونصف قبل إعادة المحاولة لمنع حظر Vercel
+                time.sleep(0.5)  # نصف ثانية فقط انتظار بين المحاولتين
                 continue
                 
     return jsonify({
