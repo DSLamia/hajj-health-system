@@ -147,27 +147,37 @@ def edit_report():
 
 @app.route('/api/weather-proxy', methods=['GET'])
 def weather_proxy():
-    url = 'https://api.open-meteo.com/v1/forecast?latitude=21.4225&longitude=39.8262&current_weather=true&hourly=temperature_2m'
-    max_retries = 2  
+    url = 'https://wttr.in/Mecca?format=j1'
     
-    for attempt in range(max_retries):
-        try:
-            response = requests.get(url, timeout=4)
+    try:
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
             
-            if response.status_code == 200:
-                return jsonify(response.json())
-                
-        except requests.exceptions.RequestException as e:
-            print(f"⚠️ محاولة حية رقم {attempt + 1} مستغرقة وقت: {str(e)}")
-            if attempt < max_retries - 1:
-                time.sleep(0.5)  # نصف ثانية فقط انتظار بين المحاولتين
-                continue
-                
+            current_condition = data.get('current_condition', [{}])[0]
+            temp_c = current_condition.get('temp_C', '35')
+            humidity = current_condition.get('humidity', '15')
+            wind_speed = current_condition.get('windspeedKmh', '12')
+            
+            formatted_data = {
+                "current_weather": {
+                    "temperature": float(temp_c),
+                    "windspeed": float(wind_speed)
+                },
+                "hourly": {
+                    "relativehumidity_2m": [float(humidity)]
+                }
+            }
+            return jsonify(formatted_data)
+            
+    except Exception as e:
+        print(f"⚠️ خطأ في السيرفر البديل: {str(e)}")
+        
     return jsonify({
         "status": "error", 
-        "message": "سيرفر الطقس العالمي مستغرق وقت طويل للاستجابة حالياً."
+        "message": "خوادم الطقس العالمية خارج الخدمة حالياً."
     }), 504
-
+    
 @app.route('/api/predict', methods=['POST'])
 def predict():
     try:
