@@ -333,15 +333,18 @@ async function getWeather() {
 
         const d = await res.json();
         
-=        if (!d.current_weather || !d.hourly) {
+        // ✅ تم حذف علامة = من بداية السطر
+        if (!d.current_weather || !d.hourly) {
             throw new Error("بيانات الطقس الحية غير مكتملة البنية.");
         }
 
-=        const currentTemp = d.current_weather.temperature;
+        // ✅ تم حذف علامة = من بداية السطر
+        const currentTemp = d.current_weather.temperature;
         const tempEl = document.getElementById('tempValue');
         if (tempEl) tempEl.innerText = Math.round(currentTemp) + "°";
 
-=        let htm = "";
+        // ✅ تم حذف علامة = من بداية السطر
+        let htm = "";
         const curH = new Date().getHours();
         for (let i = 1; i <= 6; i++) {
             const t = Math.round(d.hourly.temperature_2m[curH + i]);
