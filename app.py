@@ -164,7 +164,7 @@ def weather_proxy():
         }), 502
 
 
-د@app.route('/api/predict', methods=['POST'])
+@app.route('/api/predict', methods=['POST'])
 def predict():
     try:
         data = request.get_json() or {}
