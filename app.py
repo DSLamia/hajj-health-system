@@ -148,8 +148,9 @@ def edit_report():
 @app.route('/api/predict', methods=['POST'])
 def predict():
     try:
-       data = request.get_json() or {}
+        data = request.get_json() or {}
         
+        # 1. استخراج المدخلات البيئية مباشرة كما هي قادمة من الواجهة
         raw_temp = data.get('temperature')
         raw_humidity = data.get('humidity')
         raw_wind_speed = data.get('wind_speed')
@@ -171,9 +172,11 @@ def predict():
         temp = float(raw_temp)
         humidity = float(raw_humidity)
         wind_speed = float(raw_wind_speed)
+        
         crowd_density = float(raw_crowd_density) if raw_crowd_density is not None else 1.0
         bed_capacity = float(raw_bed_capacity) if raw_bed_capacity is not None else 150.0
         occupied_beds = float(raw_occupied_beds) if raw_occupied_beds is not None else 45.0
+        
         target_audience = data.get('target_audience', 'officer')
         phone_number = data.get('phone_number')
         user_id = data.get('user_id')
@@ -321,14 +324,13 @@ def predict():
             "risk_color": color,
             "recommendations": rec
         })
+        
     except Exception as main_e:
         return jsonify({
             "status": "error",
-            "developer_message": "⚠️ رصد خلل بنيوي: مصفوفة المدخلات المرسلة لمعالجة الذكاء الاصطناعي مفقودة أو غير متطابقة الأبعاد.",
+            "developer_message": "⚠️ رصد خلل بنيوي داخلي أثناء المعالجة.",
             "error_details": str(main_e)
         }), 500
-
-
 @app.route('/api/send-report', methods=['POST'])
 def send_report():
     try:
