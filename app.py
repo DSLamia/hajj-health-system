@@ -148,7 +148,7 @@ def edit_report():
 @app.route('/api/predict', methods=['POST'])
 def predict():
     try:
-data = request.get_json() or {}
+       data = request.get_json() or {}
         
         raw_temp = data.get('temperature')
         raw_humidity = data.get('humidity')
