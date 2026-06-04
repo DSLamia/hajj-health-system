@@ -350,7 +350,7 @@ async function getWeather() {
         const forecastEl = document.getElementById('hourlyForecast');
         if (forecastEl) forecastEl.innerHTML = htm;
 
-       const currentHumidity = d.hourly.relativehumidity_2m ? d.hourly.relativehumidity_2m[curH] : 15.0;
+        const currentHumidity = d.hourly.relativehumidity_2m ? d.hourly.relativehumidity_2m[curH] : 15.0;
         const windSpeed = d.current_weather.windspeed || 12.0;
 
         const phoneToUse = document.getElementById('userPhone').value || 'GUEST';
@@ -366,7 +366,9 @@ async function getWeather() {
         }
     }
 }
+
 async function fetchPrediction(userId, temp, wind, hum) { 
+    try {
         const labelEl = document.getElementById('riskLabel');
         if (labelEl) labelEl.innerText = "جاري تحليل البيانات والمؤشرات الطبية الحية...";
 
@@ -434,6 +436,7 @@ function floatOrZero(val) {
     const p = parseFloat(val);
     return isNaN(p) ? 0.0 : p;
 }
+
 function showMainApp(user) {
     document.getElementById('uNameDisplay').innerText = "مرحباً بك، " + (user.full_name || "ضيفنا الكريم");
 
@@ -446,10 +449,7 @@ function showMainApp(user) {
     setInterval(updateDateTime, 1000);
     fetchPrayerTimes();
     getWeather();
-
-
 }
-
 document.getElementById('entryBtn').addEventListener('click', async () => {
     const name = document.getElementById('fullName').value;
     const phone = document.getElementById('userPhone').value;
