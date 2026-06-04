@@ -10,3 +10,4 @@ seaborn
 onnxruntime
 gunicorn
 scikit-learn
+requests
