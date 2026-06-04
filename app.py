@@ -369,7 +369,7 @@ def send_report():
 
 
 @app.route('/api/send-report', methods=['POST'])
-def send_report():
+def send_report_v2():
     try:
         data = request.json or {}
         report_data = {
