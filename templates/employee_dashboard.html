@@ -252,8 +252,8 @@ async function fetchGlobalPrediction() {
         const total = res ? res.total_beds : 10240;
         const occRate = Math.round((occupied / total) * 100);
 
-        const currentTemp = parseFloat(document.getElementById('tempValue').innerText) || 32.2;
-        const currentHum = parseFloat(document.getElementById('humidityValue').innerText) || 9.0;
+        const currentTemp = parseFloat(document.getElementById('tempValue').innerText.replace(/[^\d.]/g, ''));
+        const currentHum = parseFloat(document.getElementById('humidityValue').innerText.replace(/[^\d.]/g, ''));
 
         const response = await fetch('/api/predict', {
             method: 'POST',
