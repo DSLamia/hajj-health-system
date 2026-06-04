@@ -148,7 +148,7 @@ def edit_report():
 def weather_proxy():
     try:
         url = 'https://api.open-meteo.com/v1/forecast?latitude=21.4225&longitude=39.8262&current_weather=true&hourly=temperature_2m'
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=15)
         
         if response.status_code != 200:
             return jsonify({
