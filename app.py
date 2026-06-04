@@ -155,27 +155,40 @@ def weather_proxy():
             data = response.json()
             
             current_condition = data.get('current_condition', [{}])[0]
-            temp_c = current_condition.get('temp_C', '35')
-            humidity = current_condition.get('humidity', '15')
-            wind_speed = current_condition.get('windspeedKmh', '12')
+            temp_c = float(current_condition.get('temp_C', '40'))
+            wind_speed = float(current_condition.get('windspeedKmh', '12'))
+            humidity = float(current_condition.get('humidity', '15'))
             
+            hourly_temps = []
+            weather_data = data.get('weather', [{}])[0]
+            hourly_data = weather_data.get('hourly', [])
+            
+            if hourly_data:
+                for hr in hourly_data:
+                    t = float(hr.get('tempC', temp_c))
+                    hourly_temps.extend([t, t, t]) 
+            
+            while len(hourly_temps) < 24:
+                hourly_temps.append(temp_c)
+                
             formatted_data = {
                 "current_weather": {
-                    "temperature": float(temp_c),
-                    "windspeed": float(wind_speed)
+                    "temperature": temp_c,
+                    "windspeed": wind_speed
                 },
                 "hourly": {
-                    "relativehumidity_2m": [float(humidity)]
+                    "temperature_2m": hourly_temps,
+                    "relativehumidity_2m": [humidity] * 24
                 }
             }
             return jsonify(formatted_data)
             
     except Exception as e:
-        print(f"⚠️ خطأ في السيرفر البديل: {str(e)}")
+        print(f"⚠️ خطأ في معالجة بيانات السيرفر البديل: {str(e)}")
         
     return jsonify({
         "status": "error", 
-        "message": "خوادم الطقس العالمية خارج الخدمة حالياً."
+        "message": "خوادم الطقس العالمية مستغرقة وقتاً أطول للاستجابة."
     }), 504
     
 @app.route('/api/predict', methods=['POST'])
