@@ -208,8 +208,11 @@ def predict():
         bed_capacity = float(data.get('bed_capacity', 150.0))
         occupied_beds = float(data.get('occupied_beds', 45.0))
         target_audience = data.get('target_audience', 'officer')
-        phone_number = data.get('phone_number')
         user_id = data.get('user_id')
+        
+        phone_number = data.get('phone_number')
+        if user_id and not (len(str(user_id)) == 36 and '-' in str(user_id)):
+            phone_number = user_id
 
         age_group_enc = 1.0
         chronic_disease = 0.0
