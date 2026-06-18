@@ -241,7 +241,6 @@ def predict():
                     print(f"✅ Profile found successfully: {profile}")
                     
                     raw_age = str(profile.get('age_group', '')).strip()
-                    
                     if raw_age == "61+":
                         age_group_enc = 2.0
                     elif raw_age == "1-15":
@@ -249,11 +248,11 @@ def predict():
                     else:
                         age_group_enc = 1.0
 
-                    has_chronic = profile.get('has_chronic', profile.get('chronic_diseases', False))
+                    has_chronic = profile.get('chronic_diseases', False)
                     chronic_disease = 100.0 if has_chronic else 0.0
                     
-                    disease_detail = str(profile.get('disease_detail', profile.get('disease_type', 'none'))).lower().strip()
-                    diet_status = str(profile.get('diet_status', profile.get('diet_compliance', 'follows'))).lower().strip()
+                    disease_detail = str(profile.get('disease_type', 'none')).lower().strip()
+                    diet_status = str(profile.get('diet_compliance', 'follows')).lower().strip()
                     
                     print(f"➡️ Processed Values: age_enc={age_group_enc}, chronic={has_chronic}, disease={disease_detail}, diet={diet_status}")
                 else:
@@ -262,6 +261,7 @@ def predict():
             except Exception as sub_e:
                 print(f"🚨 Supabase Fetch Error: {str(sub_e)}")
                 pass
+
         features_dict = {
             'Age_Group': [float(age_group_enc)],
             'Crowd_Density': [float(crowd_density)],
@@ -287,8 +287,9 @@ def predict():
             bed_capacity=bed_capacity,
             occupied_beds=occupied_beds
           )
+
         if isinstance(result_model, dict):
-            heatstroke_count = int(result_model.get('heatstroke_predictions', result_model.get('prediction', 0)))
+            heatstroke_count = int(result_model.get('heatstroke', result_model.get('heatstroke_predictions', 0)))
         else:
             heatstroke_count = int(result_model)
 
