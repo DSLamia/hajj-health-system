@@ -221,12 +221,12 @@ def predict():
         diet_status = "follows"
 
         is_valid_uuid = (user_id and len(str(user_id)) == 36 and '-' in str(user_id))
-
-        if phone_number or is_valid_uuid:
+if phone_number or is_valid_uuid:
             try:
                 print(f"🔍 Searching Supabase for phone: '{phone_number}' (Type: {type(phone_number)})")
                 
-                user_query = supabase.table('profiles').select('age, chronic_diseases, disease_type, diet_compliance')
+                # 🔥 تم التعديل هنا: استبدال age بـ age_group
+                user_query = supabase.table('profiles').select('age_group, chronic_diseases, disease_type, diet_compliance')
                 
                 if is_valid_uuid:
                     user_query = user_query.eq('pilgrim_id', str(user_id).strip())
@@ -241,7 +241,8 @@ def predict():
                     profile = user_res.data[0]
                     print(f"✅ Profile found successfully: {profile}")
                     
-                    raw_age = profile.get('age')
+                    # 🔥 قراءة القيمة من حقل age_group الجديد وحمايته
+                    raw_age = profile.get('age_group')
                     age_val = int(raw_age) if (raw_age is not None and str(raw_age).strip() != '') else 35
                     
                     age_group_enc = 0.0 if age_val <= 15 else (2.0 if age_val >= 61 else 1.0)
@@ -255,7 +256,6 @@ def predict():
             except Exception as sub_e:
                 print(f"🚨 Supabase Fetch Error: {str(sub_e)}")
                 pass
-
         features_dict = {
             'Age_Group': [float(age_group_enc)],
             'Crowd_Density': [float(crowd_density)],
