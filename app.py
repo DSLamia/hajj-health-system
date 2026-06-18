@@ -223,12 +223,12 @@ def predict():
         is_valid_uuid = (user_id and len(str(user_id)) == 36 and '-' in str(user_id))
         if phone_number or is_valid_uuid:
             try:
-                print(f"🔍 Searching Supabase for phone: '{phone_number}' (Type: {type(phone_number)})")
+                print(f"🔍 Searching Supabase for phone/UUID: '{phone_number or user_id}'")
                 
-                user_query = supabase.table('profiles').select('age_group, chronic_diseases, disease_type, diet_compliance')
+                user_query = supabase.table('profiles').select('age_group, has_chronic, disease_detail, diet_status')
                 
                 if is_valid_uuid:
-                    user_query = user_query.eq('pilgrim_id', str(user_id).strip())
+                    user_query = user_query.eq('user_id', str(user_id).strip())
                 elif phone_number:
                     user_query = user_query.eq('phone_number', str(phone_number).strip())
 
@@ -248,15 +248,15 @@ def predict():
                     else:
                         age_group_enc = 1.0
 
-                    has_chronic = profile.get('chronic_diseases', False)
+                    has_chronic = profile.get('has_chronic', False)
                     chronic_disease = 100.0 if has_chronic else 0.0
                     
-                    disease_detail = str(profile.get('disease_type', 'none')).lower().strip()
-                    diet_status = str(profile.get('diet_compliance', 'follows')).lower().strip()
+                    disease_detail = str(profile.get('disease_detail', 'none')).lower().strip()
+                    diet_status = str(profile.get('diet_status', 'follows')).lower().strip()
                     
                     print(f"➡️ Processed Values: age_enc={age_group_enc}, chronic={has_chronic}, disease={disease_detail}, diet={diet_status}")
                 else:
-                    print("❌ No profile matched this phone number in Supabase!")
+                    print("❌ No profile matched in Supabase!")
                     
             except Exception as sub_e:
                 print(f"🚨 Supabase Fetch Error: {str(sub_e)}")
@@ -391,7 +391,6 @@ def predict():
             "developer_message": "⚠️ رصد خلل بنيوي داخلي أثناء المعالجة.",
             "error_details": str(main_e)
         }), 500
-
 @app.route('/api/send-report', methods=['POST'])
 def send_report():
     try:
