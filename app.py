@@ -240,14 +240,22 @@ def predict():
                     profile = user_res.data[0]
                     print(f"✅ Profile found successfully: {profile}")
                     
-                    raw_age = profile.get('age_group')
-                    age_val = int(raw_age) if (raw_age is not None and str(raw_age).strip() != '') else 35
+                    raw_age = str(profile.get('age_group', '')).strip()
                     
-                    age_group_enc = 0.0 if age_val <= 15 else (2.0 if age_val >= 61 else 1.0)
-                    has_chronic = profile.get('chronic_diseases', False)
+                    if raw_age == "61+":
+                        age_group_enc = 2.0
+                    elif raw_age == "1-15":
+                        age_group_enc = 0.0
+                    else:
+                        age_group_enc = 1.0
+
+                    has_chronic = profile.get('has_chronic', profile.get('chronic_diseases', False))
                     chronic_disease = 100.0 if has_chronic else 0.0
-                    disease_detail = str(profile.get('disease_type', 'none')).lower().strip()
-                    diet_status = str(profile.get('diet_compliance', 'follows')).lower().strip()
+                    
+                    disease_detail = str(profile.get('disease_detail', profile.get('disease_type', 'none'))).lower().strip()
+                    diet_status = str(profile.get('diet_status', profile.get('diet_compliance', 'follows'))).lower().strip()
+                    
+                    print(f"➡️ Processed Values: age_enc={age_group_enc}, chronic={has_chronic}, disease={disease_detail}, diet={diet_status}")
                 else:
                     print("❌ No profile matched this phone number in Supabase!")
                     
