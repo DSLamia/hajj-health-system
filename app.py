@@ -255,8 +255,15 @@ def predict():
 
         input_df = pd.DataFrame(features_dict)
         from model_handler import predict_logic
-        result_model = predict_logic(input_df, temp)
-
+        result_model = predict_logic(
+            input_df=input_df, 
+            target_audience=target_audience, 
+            has_chronic=has_chronic, 
+            disease_detail=disease_detail, 
+            diet_status=diet_status,
+            bed_capacity=bed_capacity,
+            occupied_beds=occupied_beds
+          )
         if isinstance(result_model, dict):
             heatstroke_count = int(result_model.get('heatstroke_predictions', result_model.get('prediction', 0)))
         else:
