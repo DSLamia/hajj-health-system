@@ -225,15 +225,19 @@ def predict():
         if phone_number or is_valid_uuid:
             try:
                 user_query = supabase.table('profiles').select('age, chronic_diseases, disease_type, diet_compliance')
-                if phone_number:
-                    user_query = user_query.eq('phone_number', str(phone_number))
-                elif is_valid_uuid:
-                    user_query = user_query.eq('pilgrim_id', str(user_id))
+                
+                if is_valid_uuid:
+                    user_query = user_query.eq('pilgrim_id', str(user_id).strip())
+                elif phone_number:
+                    user_query = user_query.eq('phone_number', str(phone_number).strip())
 
                 user_res = user_query.execute()
+                
                 if user_res.data and len(user_res.data) > 0:
                     profile = user_res.data[0]
-                    raw_age = int(profile.get('age', 35))
+                    
+                    raw_age = profile.get('age')
+                    age_val = int(raw_age) if (raw_age is not None and str(raw_age).strip() != '') else 35
                     age_group_enc = 0.0 if raw_age <= 15 else (2.0 if raw_age >= 61 else 1.0)
                     has_chronic = profile.get('chronic_diseases', False)
                     chronic_disease = 100.0 if has_chronic else 0.0
